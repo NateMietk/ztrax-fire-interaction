@@ -1,5 +1,5 @@
 # Libraries ---------------------------------------------------------------
-x <- c("tidyverse", "magrittr", "sf", "gridExtra", "rgdal", "raster", "rgeos",
+x <- c("tidyverse", "magrittr", "sf", "gridExtra", "rgdal", "raster", "rgeos", "lwgeom", 'snowfall',
        "assertthat", "purrr", "httr", "rvest", "lubridate", "doParallel", "RColorBrewer", "ggthemes")
 lapply(x, library, character.only = TRUE, verbose = FALSE)
 
@@ -19,6 +19,8 @@ anthro_out <- file.path(prefix, "anthro")
 fire_crt <- file.path(prefix, "fire")
 
 mtbs_out <- file.path(fire_crt, "mtbs_fod_perimeter_data")
+
+s3_base <- 's3://earthlab-natem/ztrax-fire-interaction'
 
 # Check if directory exists for all variable aggregate outputs, if not then create
 var_dir <- list(prefix, raw_prefix, us_prefix, ecoregion_prefix, mtbs_prefix, 

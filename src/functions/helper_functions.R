@@ -23,8 +23,8 @@ extract_one <- function(filename, shapefile_extractor) {
   
   out_name <- gsub('.tif', '.csv', filename)
   if (!file.exists(out_name)) {
-    res <- raster::extract(raster::stack(filename), shapefile_extractor,
-                           na.rm = TRUE, fun = 'sum', df = TRUE)
+    res <- raster::cellStats(raster::stack(filename), shapefile_extractor,
+                           na.rm = TRUE, stat = 'sum', df = TRUE)
     write.csv(res, file = out_name)
   } else {
     res <- read.csv(out_name)

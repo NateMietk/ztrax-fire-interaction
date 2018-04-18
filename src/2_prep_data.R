@@ -21,7 +21,7 @@ if (!exists('ecoreg')) {
     loc <- "ftp://newftp.epa.gov/EPADataCommons/ORD/Ecoregions/us/us_eco_l3.zip"
     dest <- paste0(ecoregion_out, ".zip")
     download.file(loc, dest)
-    unzip(dest, exdir = raw_prefix)
+    unzip(dest, exdir = ecoregion_out)
     unlink(dest)
     assert_that(file.exists(ecoregion_shp))
   }
@@ -47,6 +47,10 @@ if (!exists('ecoreg')) {
     setNames(tolower(names(.)))
   
   st_write(ecoreg, file.path(ecoregion_out, 'us_eco_l3.gpkg'), driver = 'GPKG')
+  
+  system(paste0("aws s3 sync ",
+                prefix, " ",
+                s3_base))
 
 } else {
   ecoreg <- sf::st_read(file.path(ecoregion_out, 'us_eco_l3.gpkg'))
@@ -54,8 +58,54 @@ if (!exists('ecoreg')) {
 }
 
 #Clean and prep the MTBS data
-if (!exists('mtbs_fire')) {
+if (!exists('mtbs_pts')) {
   if (!file.exists(file.path(mtbs_out, "mtbs_conus.gpkg"))) {
+
+    # Download the MTBS fire polygons
+    mtbs_shp <- file.path(mtbs_prefix, 'mtbs_fod_pts_20170501.shp')
+    if (!file.exists(mtbs_shp)) {
+      loc <- "https://edcintl.cr.usgs.gov/downloads/sciweb1/shared/MTBS_Fire/data/composite_data/fod_pt_shapefile/mtbs_fod_pts_data.zip"
+      dest <- paste0(mtbs_prefix, ".zip")
+      download.file(loc, dest)
+      unzip(dest, exdir = mtbs_prefix)
+      unlink(dest)
+      assert_that(file.exists(mtbs_shp))
+    }
+    
+    mtbs_pts <- st_read(dsn = mtbs_prefix,
+                         layer = "mtbs_fod_pts_20170501", quiet= TRUE) %>%
+      st_transform(st_crs(usa_shp)) %>%
+      st_intersection(st_union(usa_shp)) %>%
+      mutate(MTBS_ID = FIRE_ID,
+             MTBS_FIRE_NAME = FIRENAME,
+             MTBS_DISCOVERY_YEAR = FIRE_YEAR,
+             MTBS_DISCOVERY_DAY = FIRE_DAY,
+             MTBS_DISCOVERY_MONTH = FIRE_MON,
+             MTBS_ACRES = R_ACRES,
+             FIRE_BIDECADAL = ifelse(MTBS_DISCOVERY_YEAR > 1985 & MTBS_DISCOVERY_YEAR <= 1990, 1990,
+                                       ifelse(MTBS_DISCOVERY_YEAR >= 1991 & MTBS_DISCOVERY_YEAR <= 1995, 1995,
+                                               ifelse(MTBS_DISCOVERY_YEAR >= 1996 & MTBS_DISCOVERY_YEAR <= 2000, 2000,
+                                                       ifelse(MTBS_DISCOVERY_YEAR >= 2001 & MTBS_DISCOVERY_YEAR <= 2005, 2005,
+                                                               ifelse(MTBS_DISCOVERY_YEAR >= 2006 & MTBS_DISCOVERY_YEAR <= 2010, 2010,
+                                                                       ifelse(MTBS_DISCOVERY_YEAR >= 2011 & MTBS_DISCOVERY_YEAR <= 2015, 2015, 
+                                                                               MTBS_DISCOVERY_YEAR))))))) %>%
+      dplyr::select(MTBS_ID, MTBS_FIRE_NAME, MTBS_DISCOVERY_DAY, MTBS_DISCOVERY_MONTH, MTBS_DISCOVERY_YEAR, MTBS_ACRES, FIRE_BIDECADAL) %>%
+      st_intersection(., ecoreg) %>%
+      setNames(tolower(names(.))) 
+    
+    st_write(mtbs_pts, file.path(mtbs_out, "mtbs_pts.gpkg"),
+             driver = "GPKG")
+    
+    system(paste0("aws s3 sync ",
+                  prefix, " ",
+                  s3_base))
+  } else {
+    mtbs_pts <- st_read(dsn = file.path(mtbs_out, "mtbs_conus.gpkg"))
+  }
+}
+
+if (!exists('mtbs_fire')) {
+  if (!file.exists(file.path(mtbs_out, "bidecadal_mtbs.gpkg"))) {
     
     #Download the MTBS fire polygons
     mtbs_shp <- file.path(mtbs_prefix, 'mtbs_perimeter_data_v2', 'dissolve_mtbs_perims_1984-2015_DD_20170501.shp')
@@ -67,31 +117,27 @@ if (!exists('mtbs_fire')) {
       unlink(dest)
       assert_that(file.exists(mtbs_shp))
     }
+    mtbs_pts_df <- as.data.frame(mtbs_pts) %>% 
+      dplyr::select(-geometry) %>%
+      as_tibble()
     
     mtbs_fire <- st_read(dsn = file.path(mtbs_prefix, 'mtbs_perimeter_data_v2'),
                          layer = "dissolve_mtbs_perims_1984-2015_DD_20170501", quiet= TRUE) %>%
       st_transform(st_crs(usa_shp)) %>%
-      mutate(MTBS_ID = Fire_ID,
-             MTBS_FIRE_NAME = Fire_Name,
-             MTBS_DISCOVERY_YEAR = Year,
-             MTBS_DISCOVERY_DAY = StartDay,
-             MTBS_DISCOVERY_MONTH = StartMonth,
-             MTBS_ACRES = Acres,
-             fire_bidecadal = ifelse(Year > 1985 & Year <= 1990, 1990,
-                                       ifelse(Year >= 1991 & Year <= 1995, 1995,
-                                               ifelse(Year >= 1996 & Year <= 2000, 2000,
-                                                       ifelse(Year >= 2001 & Year <= 2005, 2005,
-                                                               ifelse(Year >= 2006 & Year <= 2010, 2010,
-                                                                       ifelse(Year >= 2011 & Year <= 2015, 2015, 
-                                                                               Year))))))) %>%
-      dplyr::select(MTBS_ID, MTBS_FIRE_NAME, MTBS_DISCOVERY_DAY, MTBS_DISCOVERY_MONTH, MTBS_DISCOVERY_YEAR, MTBS_ACRES, fire_bidecadal) %>%
-      setNames(tolower(names(.)))
+      st_intersection(st_union(usa_shp)) %>%
+      mutate(MTBS_ID = Fire_ID) %>%
+      dplyr::select(MTBS_ID) %>%
+      setNames(tolower(names(.))) %>%
+      left_join(., mtbs_pts_df, by = c('mtbs_id')) %>%
+      filter(fire_bidecadal > "1985") %>%
+      na.omit()
     
-    st_write(mtbs_fire, file.path(mtbs_out, "mtbs_conus.gpkg"),
+    st_write(mtbs_fire, file.path(mtbs_out, "bidecadal_mtbs.gpkg"),
              driver = "GPKG")
     
-  } else {
-    mtbs_fire <- st_read(dsn = file.path(mtbs_out, "mtbs_conus.gpkg"))
+    system(paste0("aws s3 sync ",
+                  prefix, " ",
+                  s3_base))
   }
 }
 
@@ -99,11 +145,38 @@ if (!exists('mtbs_fire')) {
 bui_list <- list.files(file.path(anthro_out, 'built_up_intensity', 'BUI'),
                        pattern = "*.tif",
                        full.names = TRUE)
-bui <- stack(bui_list)
-#https://gis.stackexchange.com/questions/246360/how-parallelize-the-extract-function-for-raster-files-in-r
 
-cells <- cellnumbers(stack.ts[[1]], ts.poly) 
-exvalues <- lapply(seq_len(nlayers(stack.ts)), function(i) extract(readAll(stack.ts[[i]]), cells$cell_))
+# setup parallel environment
+sfInit(parallel = TRUE, cpus = parallel::detectCores())
+sfExport(list = c("mtbs_fire"))
+
+extractions <- sfLapply(as.list(bui_list),
+                        fun = extract_one,
+                        shapefile_extractor = mtbs_fire)
+sfStop()
+
+# ensure that they all have the same length
+stopifnot(all(lapply(extractions, nrow) == nrow(sub_df)))
+
+# convert to a data frame
+extraction_df <- extractions %>%
+  bind_cols %>%
+  as_tibble %>%
+  mutate(index = ID) %>%
+  select(-starts_with("ID")) %>%
+  rename(ID = index) %>%
+  mutate(FPA_ID = data.frame(sub_df)$FPA_ID) %>%
+  dplyr::select(-starts_with('X')) %>%
+  gather(variable, value, -FPA_ID, -ID) %>%
+  filter(!is.na(value)) %>%
+  mutate(FPA_ID = as.factor(FPA_ID),
+         ID = as.factor(ID)) %>%
+  # clean the final, long climate data frame with linked fpa ids
+  separate(variable,
+           into = c("variable", 'year', "statistic", "month"),
+           sep = "_|\\.") %>%
+  mutate(day = '01',
+         year_month_day = as.Date(paste(year, month, day, sep='-')))
 
 
 test.df %>% mutate(G1 = ifelse(Group == "G1", NA, G1))
