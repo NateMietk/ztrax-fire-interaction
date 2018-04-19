@@ -138,6 +138,8 @@ if (!exists('mtbs_fire')) {
     system(paste0("aws s3 sync ",
                   prefix, " ",
                   s3_base))
+  } else {
+    mtbs_fire <- st_read(file.path(mtbs_out, "bidecadal_mtbs.gpkg"))
   }
 }
 
