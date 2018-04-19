@@ -250,7 +250,7 @@ p1 <- prep_for_plot %>%
     xlab('Bidecadal fire year') +
     theme_pub() +
     facet_wrap(~region, ncol = 3, scales = 'free')
-ggsave("results/bui_area_region.pdf", p1, width = 8, height = 3, dpi=600, scale = 3, units = "cm") #saves g
+ggsave("results/region/bui/bui_area_region.pdf", p1, width = 8, height = 3, dpi=600, scale = 3, units = "cm") #saves g
 
 p2 <- prep_for_plot %>%
   transform(region = factor(region, levels=c("East", "Central", "West"))) %>%
@@ -260,7 +260,7 @@ p2 <- prep_for_plot %>%
     xlab('Bidecadal fire year') +
     theme_pub() +
     facet_wrap(~region, ncol = 3, scales = 'free')
-ggsave("results/burn_area_region.pdf", p2, width = 8, height = 3, dpi=600, scale = 3, units = "cm") #saves g
+ggsave("results/region/bui/burn_area_region.pdf", p2, width = 8, height = 3, dpi=600, scale = 3, units = "cm") #saves g
 
 p3 <- prep_for_plot %>%
   transform(region = factor(region, levels=c("East", "Central", "West"))) %>%
@@ -270,10 +270,10 @@ p3 <- prep_for_plot %>%
     xlab('Bidecadal fire year') +
     theme_pub()  +
     facet_wrap(~region, ncol = 3, scales = 'free')
-ggsave("results/prop_region.pdf", p3, width = 8, height = 3, dpi=600, scale = 3, units = "cm") #saves g
+ggsave("results/region/bui/prop_region.pdf", p3, width = 8, height = 3, dpi=600, scale = 3, units = "cm") #saves g
 
 g <- arrangeGrob(p1, p2, p3, ncol = 1)
-ggsave("results/bui_firearea_prop_region.pdf", g, width = 8, height = 9, dpi=600, scale = 3, units = "cm") #saves g
+ggsave("results/region/bui/bui_firearea_prop_region.pdf", g, width = 8, height = 9, dpi=600, scale = 3, units = "cm") #saves g
 system(paste0("aws s3 sync results ", s3_results))
 
 # Plot the histogram of built-up area
@@ -286,7 +286,28 @@ p4 <- as.data.frame(extraction_df) %>%
     ylab("Counts") +
     xlab('log Built-up Intentsity (ha)') +
     theme_pub()
-ggsave("results/bui_hist.pdf", p4, width = 4, height = 6, dpi=600, scale = 3, units = "cm") #saves g
+
+mx_cnt <- ggplot_build(p4)$data[[1]] %>%
+  tbl_df %>%
+  dplyr::select(y, x, count) %>%
+  mutate(max_count = max(count)) %>%
+  filter(y == max_count)
+
+p4 <- as.data.frame(extraction_df) %>%
+  mutate(bui_ha = BUI*0.0001000000884) %>%
+  as_tibble() %>%
+  ggplot(aes(x = log(bui_ha))) +
+  geom_histogram(binwidth = 0.5) +
+  ylab("Counts") +
+  xlab('log Built-up Intentsity (ha)') +
+  theme_pub() +
+  geom_vline(aes(xintercept = x), data = mx_cnt,
+             linetype = "dashed", color  = "red") +
+  geom_text(data = mx_cnt,
+            aes(label=paste(round(exp(x),3), "ha", sep = " "), x = 3 + x, y = 590, colour="red"), size = 4) +
+  theme(legend.position = "none")
+            
+ggsave("results/bui/bui_hist.pdf", p4, width = 4, height = 4, dpi=600, scale = 3, units = "cm") #saves g
 
 p5 <- as.data.frame(extraction_df) %>%
   mutate(bui_ha = BUI*0.0001000000884) %>%
@@ -298,5 +319,72 @@ p5 <- as.data.frame(extraction_df) %>%
     xlab('log Built-up Intentsity (ha)') +
     theme_pub() +
     facet_wrap(~region, ncol = 3, scales = 'free')
-ggsave("results/bui_hist_region.pdf", p5, width = 4, height = 6, dpi=600, scale = 3, units = "cm") #saves g
+
+mx_cnt <- ggplot_build(p5)$data[[1]] %>%
+  tbl_df %>%
+  dplyr::select(y, x, count, PANEL) %>%
+  group_by(PANEL) %>%
+  summarize(max_count = max(count)) %>%
+  ungroup()
+mx_info <- ggplot_build(p5)$data[[1]] %>%
+  tbl_df %>%
+  left_join(., mx_cnt, by = 'PANEL') %>%
+  filter(y == max_count)
+
+# check to see where the min. diffs fall in plot
+firefreq_cent <- as.data.frame(extraction_df) %>%
+  filter(region ==  "Central") %>%
+  mutate(bui_ha = BUI*0.0001000000884) %>%
+  as_tibble() %>%
+  #transform(region = factor(region, levels=c("East", "Central", "West"))) %>%
+  ggplot(aes(x = log(bui_ha))) +
+  geom_histogram(binwidth = 0.5) +
+  ylab("Counts") +
+  xlab('log Built-up Intentsity (ha)') +
+  ggtitle("Central") +
+  theme_pub() +
+  # facet_wrap(~region, ncol = 3, scales = 'free') +
+  geom_vline(aes(xintercept = x), data = subset(mx_info, PANEL == "2"), linetype = "dashed", color  = "red") +
+   geom_text(data=subset(mx_info, PANEL == "2"),
+             aes(label=paste(round(exp(x),3), "ha", sep = " "), x = 2 + x, y = 170, colour="red"), size = 4) +
+  theme(legend.position = "none")
+
+# check to see where the min. diffs fall in plot
+firefreq_east <- as.data.frame(extraction_df) %>%
+  filter(region ==  "East") %>%
+  mutate(bui_ha = BUI*0.0001000000884) %>%
+  as_tibble() %>%
+  #transform(region = factor(region, levels=c("East", "Central", "West"))) %>%
+  ggplot(aes(x = log(bui_ha))) +
+  geom_histogram(binwidth = 0.5) +
+  ylab("Counts") +
+  xlab('log Built-up Intentsity (ha)') +
+  ggtitle("East") +
+  theme_pub() +
+  # facet_wrap(~region, ncol = 3, scales = 'free') +
+  geom_vline(aes(xintercept = x), data = subset(mx_info, PANEL == "1"), linetype = "dashed", color  = "red") +
+  geom_text(data=subset(mx_info, PANEL == "1"),
+            aes(label=paste(round(exp(x),3), "ha", sep = " "), x = 2 + x, y = 250, colour="red"), size = 4) +
+  theme(legend.position = "none")
+
+firefreq_west <- as.data.frame(extraction_df) %>%
+  filter(region ==  "West") %>%
+  mutate(bui_ha = BUI*0.0001000000884) %>%
+  as_tibble() %>%
+  #transform(region = factor(region, levels=c("East", "Central", "West"))) %>%
+  ggplot(aes(x = log(bui_ha))) +
+  geom_histogram(binwidth = 0.5) +
+  ylab("Counts") +
+  xlab('log Built-up Intentsity (ha)') +
+  ggtitle("West") +
+  theme_pub() +
+  # facet_wrap(~region, ncol = 3, scales = 'free') +
+  geom_vline(aes(xintercept = x), data = subset(mx_info, PANEL == "3"), linetype = "dashed", color  = "red") +
+  geom_text(data=subset(mx_info, PANEL == "3"),
+            aes(label=paste(round(exp(x),3), "ha", sep = " "), x = 2 + x, y = 150, colour="red"), size = 4) +
+  theme(legend.position = "none")
+
+g <- arrangeGrob(firefreq_east, firefreq_cent, firefreq_west, ncol = 1)
+
+ggsave("results/region/bui/bui_hist_region.pdf", g, width = 4, height = 7, dpi=600, scale = 3, units = "cm") #saves g
 system(paste0("aws s3 sync results ", s3_results))
