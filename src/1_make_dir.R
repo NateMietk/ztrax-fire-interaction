@@ -21,8 +21,9 @@ fire_crt <- file.path(prefix, "fire")
 mtbs_out <- file.path(fire_crt, "mtbs_fod_perimeter_data")
 
 s3_base <- 's3://earthlab-natem/ztrax-fire-interaction'
+s3_results <- 's3://earthlab-natem/ztrax-fire-interaction/results'
 
 # Check if directory exists for all variable aggregate outputs, if not then create
-var_dir <- list(prefix, raw_prefix, us_prefix, ecoregion_prefix, mtbs_prefix, 
+var_dir <- list(prefix, raw_prefix, us_prefix, ecoregion_prefix, mtbs_prefix,
                 anthro_out, fire_crt, ecoregion_out, mtbs_out)
 lapply(var_dir, function(x) if(!dir.exists(x)) dir.create(x, showWarnings = FALSE))

@@ -4,6 +4,8 @@
 
 # Session Data files
 .RData
+data
+.rstudio
 
 # Example code in package build process
 *-Ex.R
