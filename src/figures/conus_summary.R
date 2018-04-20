@@ -32,4 +32,3 @@ ggsave("results/bui/prop.pdf", p3, width = 6, height = 4, dpi=600, scale = 3, un
 g <- arrangeGrob(p1, p2, p3)
 ggsave("results/bui/bui_firearea_prop.pdf", g, width = 6, height = 9, dpi=600, scale = 3, units = "cm") #saves g
 system(paste0("aws s3 sync results ", s3_results))
-
