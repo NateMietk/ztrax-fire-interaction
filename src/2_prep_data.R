@@ -11,6 +11,48 @@ if (!exists("usa_shp")){
     setNames(tolower(names(.)))
 }
 
+# Import the Level 1 Ecoregions
+if (!exists('ecoregl1')) {
+  if (!file.exists(file.path(ecoregion_out, 'us_eco_l1.gpkg'))) {
+    
+    # Download the Level 1 Ecoregions
+    ecoregion_shp <- file.path(ecoregion_out, "NA_CEC_Eco_Level1.shp")
+    if (!file.exists(ecoregion_shp)) {
+      loc <- "ftp://newftp.epa.gov/EPADataCommons/ORD/Ecoregions/cec_na/na_cec_eco_l1.zip"
+      dest <- paste0(ecoregion_out, ".zip")
+      download.file(loc, dest)
+      unzip(dest, exdir = ecoregion_out)
+      unlink(dest)
+      assert_that(file.exists(ecoregion_shp))
+    }
+    
+    ecoregl1 <- st_read(dsn = ecoregion_out, layer = "NA_CEC_Eco_Level1") %>%
+      st_transform(st_crs(usa_shp)) %>%  # e.g. US National Atlas Equal Area
+      st_simplify(., preserveTopology = TRUE, dTolerance = 1000) %>%
+      st_make_valid() %>%
+      st_intersection(., usa_shp) %>%
+      mutate(region = as.factor(if_else(NA_L1NAME %in% c("EASTERN TEMPERATE FORESTS",
+                                                         "TROPICAL WET FORESTS",
+                                                         "NORTHERN FORESTS"), "East",
+                                        if_else(NA_L1NAME %in% c("NORTH AMERICAN DESERTS",
+                                                                 "SOUTHERN SEMI-ARID HIGHLANDS",
+                                                                 "TEMPERATE SIERRAS",
+                                                                 "MEDITERRANEAN CALIFORNIA",
+                                                                 "NORTHWESTERN FORESTED MOUNTAINS",
+                                                                 "MARINE WEST COAST FOREST"), "West", "Central")))) %>%
+      setNames(tolower(names(.)))
+    
+    st_write(ecoregl1, file.path(ecoregion_out, 'us_eco_l1.gpkg'), driver = 'GPKG')
+    
+    system(paste0("aws s3 sync ",
+                  prefix, " ",
+                  s3_base))
+    
+  } else {
+    ecoregl1 <- sf::st_read(file.path(ecoregion_out, 'us_eco_l1.gpkg'))
+  }
+}
+
 # Import the Level 3 Ecoregions
 if (!exists('ecoreg')) {
   if (!file.exists(file.path(ecoregion_out, 'us_eco_l3.gpkg'))) {
@@ -158,16 +200,19 @@ extractions <- sfLapply(as.list(bui_list),
 sfStop()
 
 # Import the FBUY data
-filename <- file.path(anthro_out, 'first_year_built', 'FBUY', 'FBUY.tif')
-out_name <- gsub('.tif', '.csv', filename)
-
-fbuy_extractions <- raster(file.path(anthro_out, 'first_year_built', 'FBUY', 'FBUY.tif')) %>%
-  extract(., mtbs_fire, na.rm = TRUE, stat = 'sum', df = TRUE)
-write.csv(fbuy_list, file = out_name)
-
-system(paste0("aws s3 sync ",
-              prefix, " ",
-              s3_base))
+if( !file.exists('data/anthro/first_year_built/FBUY/FBUY.csv')) {
+  filename <- file.path(anthro_out, 'first_year_built', 'FBUY', 'FBUY.tif')
+  out_name <- gsub('.tif', '.csv', filename)
+  
+  fbuy_extractions <- raster(file.path(anthro_out, 'first_year_built', 'FBUY', 'FBUY.tif'))
+  fbuy_extractions <- extract(fbuy_extractions, mtbs_fire, na.rm = TRUE, stat = 'sum', df = TRUE)
+  write.csv(fbuy_extractions, file = out_name)
+  
+  system(paste0("aws s3 sync ", prefix, " ", s3_base)) 
+  
+} else {
+  fbuy_extractions <- read_csv('data/anthro/first_year_built/FBUY/FBUY.csv')
+}
 
 if (!file.exists(file.path(mtbs_out, "mtbs_bui_5yr.gpkg"))) {
   # convert to a data frame
@@ -200,191 +245,3 @@ if (!file.exists(file.path(mtbs_out, "mtbs_bui_5yr.gpkg"))) {
   extraction_df <- st_read(file.path(mtbs_out, "mtbs_bui_5yr.gpkg"))
 }
 
-# Plot BUI over time
-prep_for_plot <- as.data.frame(extraction_df) %>%
-  group_by(fire_bidecadal) %>%
-  summarise(burn_area_ha = sum(mtbs_acres*0.404686),
-            bui_ha = sum(BUI*0.0001000000884)) %>%
-  mutate(BUI_firearea_prop = bui_ha/burn_area_ha*100)
-
-p1 <- prep_for_plot %>%
-  ggplot(aes(x = fire_bidecadal, y = bui_ha)) +
-  geom_bar(stat = 'identity') +
-  ylab("Built-up intentsity (ha)") +
-  xlab('Bidecadal fire year') +
-  theme_pub()
-ggsave("results/bui/bui_area.pdf", p1, width = 6, height = 4, dpi=600, scale = 3, units = "cm") #saves g
-
-p2 <- prep_for_plot %>%
-  ggplot(aes(x = fire_bidecadal, y = burn_area_ha)) +
-  geom_bar(stat = 'identity') +
-  ylab("Burned area (ha)") +
-  xlab('Bidecadal fire year') +
-  theme_pub()
-ggsave("results/bui/burn_area.pdf", p2, width = 6, height = 4, dpi=600, scale = 3, units = "cm") #saves g
-
-p3 <- prep_for_plot %>%
-  ggplot(aes(x = fire_bidecadal, y = BUI_firearea_prop)) +
-  geom_bar(stat = 'identity') +
-  ylab("Proportion of BUI to burned area (%)") +
-  xlab('Bidecadal fire year') +
-  theme_pub()
-ggsave("results/bui/prop.pdf", p3, width = 6, height = 4, dpi=600, scale = 3, units = "cm") #saves g
-
-g <- arrangeGrob(p1, p2, p3)
-ggsave("results/bui/bui_firearea_prop.pdf", g, width = 6, height = 9, dpi=600, scale = 3, units = "cm") #saves g
-system(paste0("aws s3 sync results ", s3_results))
-
-# Plot BUI over time EAST vs WEST
-prep_for_plot <- as.data.frame(extraction_df) %>%
-  group_by(fire_bidecadal, region) %>%
-  summarise(burn_area_ha = sum(mtbs_acres*0.404686),
-            bui_ha = sum(BUI*0.0001000000884)) %>%
-  mutate(BUI_firearea_prop = bui_ha/burn_area_ha*100)
-
-p1 <- prep_for_plot %>%
-  transform(region = factor(region, levels=c("East", "Central", "West"))) %>%
-  ggplot(aes(x = fire_bidecadal, y = bui_ha)) +
-    geom_bar(stat = 'identity') +
-    ylab("Built-up intentsity (ha)") +
-    xlab('Bidecadal fire year') +
-    theme_pub() +
-    facet_wrap(~region, ncol = 3, scales = 'free')
-ggsave("results/region/bui/bui_area_region.pdf", p1, width = 8, height = 3, dpi=600, scale = 3, units = "cm") #saves g
-
-p2 <- prep_for_plot %>%
-  transform(region = factor(region, levels=c("East", "Central", "West"))) %>%
-  ggplot(aes(x = fire_bidecadal, y = burn_area_ha*0.0001)) +
-    geom_bar(stat = 'identity') +
-    ylab("Burned area (0.0001*ha)") +
-    xlab('Bidecadal fire year') +
-    theme_pub() +
-    facet_wrap(~region, ncol = 3, scales = 'free')
-ggsave("results/region/bui/burn_area_region.pdf", p2, width = 8, height = 3, dpi=600, scale = 3, units = "cm") #saves g
-
-p3 <- prep_for_plot %>%
-  transform(region = factor(region, levels=c("East", "Central", "West"))) %>%
-  ggplot(aes(x = fire_bidecadal, y = BUI_firearea_prop)) +
-    geom_bar(stat = 'identity') +
-    ylab("Proportion of BUI to burned area (%)") +
-    xlab('Bidecadal fire year') +
-    theme_pub()  +
-    facet_wrap(~region, ncol = 3, scales = 'free')
-ggsave("results/region/bui/prop_region.pdf", p3, width = 8, height = 3, dpi=600, scale = 3, units = "cm") #saves g
-
-g <- arrangeGrob(p1, p2, p3, ncol = 1)
-ggsave("results/region/bui/bui_firearea_prop_region.pdf", g, width = 8, height = 9, dpi=600, scale = 3, units = "cm") #saves g
-system(paste0("aws s3 sync results ", s3_results))
-
-# Plot the histogram of built-up area
-# The burned area/fire was long tailed (range 0.01-3000) - had to log transform
-p4 <- as.data.frame(extraction_df) %>%
-  mutate(bui_ha = BUI*0.0001000000884) %>%
-  as_tibble() %>%
-  ggplot(aes(x = log(bui_ha))) +
-    geom_histogram(binwidth = 0.5) +
-    ylab("Counts") +
-    xlab('log Built-up Intentsity (ha)') +
-    theme_pub()
-
-mx_cnt <- ggplot_build(p4)$data[[1]] %>%
-  tbl_df %>%
-  dplyr::select(y, x, count) %>%
-  mutate(max_count = max(count)) %>%
-  filter(y == max_count)
-
-p4 <- as.data.frame(extraction_df) %>%
-  mutate(bui_ha = BUI*0.0001000000884) %>%
-  as_tibble() %>%
-  ggplot(aes(x = log(bui_ha))) +
-  geom_histogram(binwidth = 0.5) +
-  ylab("Counts") +
-  xlab('log Built-up Intentsity (ha)') +
-  theme_pub() +
-  geom_vline(aes(xintercept = x), data = mx_cnt,
-             linetype = "dashed", color  = "red") +
-  geom_text(data = mx_cnt,
-            aes(label=paste(round(exp(x),3), "ha", sep = " "), x = 3 + x, y = 590, colour="red"), size = 4) +
-  theme(legend.position = "none")
-            
-ggsave("results/bui/bui_hist.pdf", p4, width = 4, height = 4, dpi=600, scale = 3, units = "cm") #saves g
-
-p5 <- as.data.frame(extraction_df) %>%
-  mutate(bui_ha = BUI*0.0001000000884) %>%
-  as_tibble() %>%
-  transform(region = factor(region, levels=c("East", "Central", "West"))) %>%
-  ggplot(aes(x = log(bui_ha))) +
-    geom_histogram(binwidth = 0.5) +
-    ylab("Counts") +
-    xlab('log Built-up Intentsity (ha)') +
-    theme_pub() +
-    facet_wrap(~region, ncol = 3, scales = 'free')
-
-mx_cnt <- ggplot_build(p5)$data[[1]] %>%
-  tbl_df %>%
-  dplyr::select(y, x, count, PANEL) %>%
-  group_by(PANEL) %>%
-  summarize(max_count = max(count)) %>%
-  ungroup()
-mx_info <- ggplot_build(p5)$data[[1]] %>%
-  tbl_df %>%
-  left_join(., mx_cnt, by = 'PANEL') %>%
-  filter(y == max_count)
-
-# check to see where the min. diffs fall in plot
-firefreq_cent <- as.data.frame(extraction_df) %>%
-  filter(region ==  "Central") %>%
-  mutate(bui_ha = BUI*0.0001000000884) %>%
-  as_tibble() %>%
-  #transform(region = factor(region, levels=c("East", "Central", "West"))) %>%
-  ggplot(aes(x = log(bui_ha))) +
-  geom_histogram(binwidth = 0.5) +
-  ylab("Counts") +
-  xlab('log Built-up Intentsity (ha)') +
-  ggtitle("Central") +
-  theme_pub() +
-  # facet_wrap(~region, ncol = 3, scales = 'free') +
-  geom_vline(aes(xintercept = x), data = subset(mx_info, PANEL == "2"), linetype = "dashed", color  = "red") +
-   geom_text(data=subset(mx_info, PANEL == "2"),
-             aes(label=paste(round(exp(x),3), "ha", sep = " "), x = 2 + x, y = 170, colour="red"), size = 4) +
-  theme(legend.position = "none")
-
-# check to see where the min. diffs fall in plot
-firefreq_east <- as.data.frame(extraction_df) %>%
-  filter(region ==  "East") %>%
-  mutate(bui_ha = BUI*0.0001000000884) %>%
-  as_tibble() %>%
-  #transform(region = factor(region, levels=c("East", "Central", "West"))) %>%
-  ggplot(aes(x = log(bui_ha))) +
-  geom_histogram(binwidth = 0.5) +
-  ylab("Counts") +
-  xlab('log Built-up Intentsity (ha)') +
-  ggtitle("East") +
-  theme_pub() +
-  # facet_wrap(~region, ncol = 3, scales = 'free') +
-  geom_vline(aes(xintercept = x), data = subset(mx_info, PANEL == "1"), linetype = "dashed", color  = "red") +
-  geom_text(data=subset(mx_info, PANEL == "1"),
-            aes(label=paste(round(exp(x),3), "ha", sep = " "), x = 2 + x, y = 250, colour="red"), size = 4) +
-  theme(legend.position = "none")
-
-firefreq_west <- as.data.frame(extraction_df) %>%
-  filter(region ==  "West") %>%
-  mutate(bui_ha = BUI*0.0001000000884) %>%
-  as_tibble() %>%
-  #transform(region = factor(region, levels=c("East", "Central", "West"))) %>%
-  ggplot(aes(x = log(bui_ha))) +
-  geom_histogram(binwidth = 0.5) +
-  ylab("Counts") +
-  xlab('log Built-up Intentsity (ha)') +
-  ggtitle("West") +
-  theme_pub() +
-  # facet_wrap(~region, ncol = 3, scales = 'free') +
-  geom_vline(aes(xintercept = x), data = subset(mx_info, PANEL == "3"), linetype = "dashed", color  = "red") +
-  geom_text(data=subset(mx_info, PANEL == "3"),
-            aes(label=paste(round(exp(x),3), "ha", sep = " "), x = 2 + x, y = 150, colour="red"), size = 4) +
-  theme(legend.position = "none")
-
-g <- arrangeGrob(firefreq_east, firefreq_cent, firefreq_west, ncol = 1)
-
-ggsave("results/region/bui/bui_hist_region.pdf", g, width = 4, height = 7, dpi=600, scale = 3, units = "cm") #saves g
-system(paste0("aws s3 sync results ", s3_results))
