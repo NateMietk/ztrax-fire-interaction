@@ -200,20 +200,47 @@ extractions <- sfLapply(as.list(bui_list),
 sfStop()
 
 # Import the FBUY data
-if( !file.exists('data/anthro/first_year_built/FBUY/FBUY.csv')) {
-  filename <- file.path(anthro_out, 'first_year_built', 'FBUY', 'FBUY.tif')
-  out_name <- gsub('.tif', '.csv', filename)
-  
-  fbuy_extractions <- raster(file.path(anthro_out, 'first_year_built', 'FBUY', 'FBUY.tif'))
-  fbuy_extractions <- extract(fbuy_extractions, mtbs_fire, na.rm = TRUE, stat = 'sum', df = TRUE)
-  write.csv(fbuy_extractions, file = out_name)
-  
-  system(paste0("aws s3 sync ", prefix, " ", s3_base)) 
-  
-} else {
-  fbuy_extractions <- read_csv('data/anthro/first_year_built/FBUY/FBUY.csv')
+if (!exists('fbuy_extractions')) {
+  if( !file.exists('data/anthro/first_year_built/FBUY/FBUY.csv')) {
+    filename <- file.path(anthro_out, 'first_year_built', 'FBUY', 'FBUY.tif')
+    out_name <- gsub('.tif', '.csv', filename)
+    
+    fbuy_extractions <- raster(file.path(anthro_out, 'first_year_built', 'FBUY', 'FBUY.tif'))
+    fbuy_extractions <- extract(fbuy_extractions, mtbs_fire, na.rm = TRUE, stat = 'sum', df = TRUE)
+    write.csv(fbuy_extractions, file = out_name)
+    
+    system(paste0("aws s3 sync ", prefix, " ", s3_base)) 
+    
+  } else {
+    fbuy_extractions <- read_csv('data/anthro/first_year_built/FBUY/FBUY.csv')
+  }
 }
 
+fbuy_extractions_df <- fbuy_extractions %>%
+  bind_cols %>%
+  as_tibble %>%
+  mutate(index = ID) %>%
+  dplyr::select(-starts_with("ID")) %>%
+  rename(ID = index) %>%
+  group_by(ID) %>%
+  summarise(bu_bool = sum(FBUY)) %>%
+  ungroup() %>%
+  mutate(bu_bool = ifelse(bu_bool == 0, 0, 1),
+         mtbs_id = data.frame(mtbs_fire)$mtbs_id)
+
+fbuy_extractions_df <- fbuy_extractions %>%
+  bind_cols %>%
+  as_tibble %>%
+  mutate(index = ID) %>%
+  dplyr::select(-starts_with("ID")) %>%
+  rename(ID = index) %>%
+  filter(FBUY != 0 & FBUY != 1) %>%
+  group_by(ID) %>%
+  summarise(FBUY = min(FBUY)) %>%
+  ungroup() %>%
+  right_join(., fbuy_extractions_df, by = 'ID') %>%
+  dplyr::select(-ID)
+  
 if (!file.exists(file.path(mtbs_out, "mtbs_bui_5yr.gpkg"))) {
   # convert to a data frame
   extraction_df <- extractions %>%
@@ -228,6 +255,7 @@ if (!file.exists(file.path(mtbs_out, "mtbs_bui_5yr.gpkg"))) {
     mutate(mtbs_id = data.frame(mtbs_fire)$mtbs_id) %>%
     dplyr::select(-starts_with('X'), -ID) %>%
     left_join(mtbs_fire, ., by = 'mtbs_id') %>%
+    right_join(., fbuy_extractions_df, by = 'mtbs_id') %>%
     mutate(BUI = ifelse(fire_bidecadal == "1990", BUI_1990,
                         ifelse(fire_bidecadal == "1995", BUI_1995,
                                ifelse(fire_bidecadal == "2000", BUI_2000,
@@ -235,11 +263,11 @@ if (!file.exists(file.path(mtbs_out, "mtbs_bui_5yr.gpkg"))) {
                                              ifelse(fire_bidecadal == "2010", BUI_2010,
                                                     ifelse(fire_bidecadal == "2015", BUI_2015,
                                                            0)))))))
-  st_write(extraction_df, file.path(mtbs_out, "mtbs_bui_5yr.gpkg"))
+  st_write(extraction_df, file.path(mtbs_out, "mtbs_bui_5yr.gpkg"),
+           delete_layer = TRUE)
 
-  system(paste0("aws s3 sync ",
-                prefix, " ",
-                s3_base))
+  system(paste0("aws s3 sync ", prefix, " ", s3_base))
+  
 } else {
 
   extraction_df <- st_read(file.path(mtbs_out, "mtbs_bui_5yr.gpkg"))
