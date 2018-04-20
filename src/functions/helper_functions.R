@@ -37,11 +37,11 @@ extract_one <- function(filename, shapefile_extractor, prefix = prefix, s3_base 
 }
 
 # GGPLOT Theme ------------------------------------------------------------
-theme_pub <- function(base_size=13, base_family="") {
+theme_pub <- function(base_size=14, base_family="") {
   library(grid)
   library(ggthemes)
   (theme_foundation(base_size=base_size, base_family=base_family)
-    + theme(plot.title = element_text(hjust = 0.05, size = 13),
+    + theme(plot.title = element_text(hjust = 0.05, size = 14),
 
             panel.border = element_rect(colour = NA),
             panel.background = element_rect(colour = NA),
@@ -52,16 +52,16 @@ theme_pub <- function(base_size=13, base_family="") {
             axis.line = element_line(colour="black"),
             axis.ticks = element_line(),
 
-            legend.title = element_text(size=13),
+            legend.title = element_text(size=14),
             legend.position = "right",
-            legend.text = element_text(size=13),
+            legend.text = element_text(size=14),
             legend.direction = "vertical",
             legend.key = element_rect(colour = "transparent", fill = "transparent"),
 
             strip.background=element_rect(colour=NA),
-            strip.text.x = element_text(size = 13),
+            strip.text.x = element_text(size = 14),
 
-            axis.title = element_text(size = 13),
-            axis.text.x = element_text(size = 13, angle = 65, hjust = 1),
-            axis.text.y = element_text(size = 13)))
+            axis.title = element_text(size = 14),
+            axis.text.x = element_text(size = 14, angle = 65, hjust = 1),
+            axis.text.y = element_text(size = 14)))
 }
