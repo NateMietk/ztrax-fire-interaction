@@ -32,7 +32,7 @@ firefreq_15 <- as.data.frame(extraction_df) %>%
             upper = 125, conus = FALSE)
 
 g <- arrangeGrob(firefreq_90, firefreq_95, firefreq_00, firefreq_05, firefreq_10, firefreq_15, nrow = 1)
-ggsave("results/region/bui/bui_east_hist_per5yr.pdf", g, width = 18, height = 5, dpi=600, scale = 3, units = "cm") #saves g
+ggsave("results/region/bui/bui_east_hist_per5yr.pdf", g, width = 12, height = 5, dpi=600, scale = 4, units = "cm") #saves g
 
 
 # check to see where the min. diffs fall in plot
