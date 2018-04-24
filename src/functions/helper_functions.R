@@ -42,9 +42,9 @@ classify_fire_size <-  function(x) {
   #   - x: vector of fire sizes
   # output:
   #   - y: vector (same length) of classified fire sizes ----- Km2
-  ifelse(x < 1000, "< 1000",
-         ifelse(x >= 1000 & x < 10000, "1000 - 10000",
-                ifelse(x >= 10000 & x < 50000, "10000 - 50000",
+  ifelse(x >= 500 & x < 5000, "500 - 5000",
+         ifelse(x >= 5000 & x < 25000, "5000 - 25000",
+                ifelse(x >= 25000 & x < 50000, "25000 - 50000",
                        "> 50000")))
 }
 # GGPLOT Theme ------------------------------------------------------------
