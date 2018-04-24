@@ -218,3 +218,4 @@ hist_fbuy_plot <- function(df, regions, panel, upper = 250) {
     theme(legend.position = "none")
   p
 }
+
