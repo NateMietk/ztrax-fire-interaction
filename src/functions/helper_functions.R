@@ -36,6 +36,17 @@ extract_one <- function(filename, shapefile_extractor, prefix = prefix, s3_base 
   res
 }
 
+classify_fire_size <-  function(x) {
+  # break out fires into small, med, large
+  # input:
+  #   - x: vector of fire sizes
+  # output:
+  #   - y: vector (same length) of classified fire sizes ----- Km2
+  ifelse(x < 1000, "< 1000",
+         ifelse(x >= 1000 & x < 10000, "1000 - 10000",
+                ifelse(x >= 10000 & x < 50000, "10000 - 50000",
+                       "> 50000")))
+}
 # GGPLOT Theme ------------------------------------------------------------
 theme_pub <- function(base_size=14, base_family="") {
   library(grid)
