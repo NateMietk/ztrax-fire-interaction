@@ -28,26 +28,18 @@ p_df <- as.data.frame(extraction_df) %>%
 
 
 p_bu_num <- p_df %>%
-  transform(fire_size = factor(fire_size, levels=c("< 1000", "1000 - 10000", '10000 - 50000', '> 50000'))) %>%
+  transform(fire_size = factor(fire_size, levels=c("500 - 5000", "5000 - 25000", '25000 - 50000', '> 50000'))) %>%
   fbuy_plot_stats(., y = p_df$pct_bu_in_burn, 
-                  title = 'Proportion of built-up area \nto wildfire area',
-                  xlab = '% built-up to wildfire area',
+                  title = 'Proportion of the number of \nwildfires that had built-up',
+                  xlab = '% built-up to wildfire count',
                   ylab = 'Years')
-
-p_bu_pct <- p_df %>%
-  transform(fire_size = factor(fire_size, levels=c("< 1000", "1000 - 10000", '10000 - 50000', '> 50000'))) %>%
-  fbuy_plot_stats(.,y = p_df$pct_bu_area_burned, 
-                  title = 'Proportion of built-up area \nto wildfire area',
-                  xlab = '% built-up to wildfire area',
-                  ylab = 'Years')
-
+ggsave("results/fire_size/fbuy/fbuy_pro_number_fire_size.pdf", p_bu_num, width = 5, height = 5, dpi=600, scale = 3, units = "cm") #saves 
 
 p_bu_area <- p_df %>%
-  transform(fire_size = factor(fire_size, levels=c("< 1000", "1000 - 10000", '10000 - 50000', '> 50000'))) %>%
+  transform(fire_size = factor(fire_size, levels=c("500 - 5000", "5000 - 25000", '25000 - 50000', '> 50000'))) %>%
   fbuy_plot_stats(.,y = p_df$bu_area, 
                   title = 'Built-up area witin wildfire (ha)',
                   xlab = 'BU area (ha)',
                   ylab = 'Years')
+ggsave("results/fire_size/fbuy/fbuy_bu_area_fire_size.pdf", p_bu_num, width = 5, height = 5, dpi=600, scale = 3, units = "cm") #saves 
 
-g <- arrangeGrob(p_bu_num, p_bu_pct, p_bu_area, nrow = 1)
-ggsave("results/fbuy/fbuy_stats_fire_size.pdf", g, width = 10, height = 5, dpi=600, scale = 3, units = "cm") #saves 
