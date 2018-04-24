@@ -33,7 +33,7 @@ p2 <- p_df %>%
   transform(fire_size = factor(fire_size, levels=c("500 - 5000", "5000 - 25000", '25000 - 50000', '> 50000'))) %>%
   ggplot(aes(x = fire_bidecadal, y = pct_bu_in_total_fires, fill = region)) +
   geom_bar(stat = 'identity') +
-  ylab("% total wildfires that burned in built-up areas") +
+  ylab("% of total wildfires that burned in built-up areas") +
   xlab('Bidecadal fire year') +
   theme_pub() +
   facet_wrap(region~fire_size, ncol = 4) +
