@@ -25,13 +25,13 @@ p_df <- as.data.frame(extraction_df) %>%
 
 
 p_bu_num <- fbuy_plot_stats(p_df, y = p_df$pct_bu_in_burn, 
-                            title = 'Proportion of built-up area \nto wildfire area',
+                            title = 'Proportion of the number of \nwildfires that had built-up',
                             xlab = '% built-up to wildfire area',
                             ylab = 'Years')
 ggsave("results/fbuy/fbuy_pro_num.pdf", p_bu_num, width = 5, height = 5, dpi=600, scale = 3, units = "cm") #saves g
 
 p_bu_area <- fbuy_plot_stats(p_df, y = p_df$bu_area, 
-                             title = 'Built-up area witin wildfire (ha)',
+                             title = 'Built-up area within wildfire (ha)',
                              xlab = 'BU area (ha)',
                              ylab = 'Years')
 ggsave("results/fbuy/fbuy_bu_area.pdf", p_bu_area, width = 5, height = 5, dpi=600, scale = 3, units = "cm") #saves g

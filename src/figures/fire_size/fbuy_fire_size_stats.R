@@ -38,7 +38,7 @@ ggsave("results/fire_size/fbuy/fbuy_pro_number_fire_size.pdf", p_bu_num, width =
 p_bu_area <- p_df %>%
   transform(fire_size = factor(fire_size, levels=c("500 - 5000", "5000 - 25000", '25000 - 50000', '> 50000'))) %>%
   fbuy_plot_stats(.,y = p_df$bu_area, 
-                  title = 'Built-up area witin wildfire (ha)',
+                  title = 'Built-up area within wildfire (ha)',
                   xlab = 'BU area (ha)',
                   ylab = 'Years')
 ggsave("results/fire_size/fbuy/fbuy_bu_area_fire_size.pdf", p_bu_num, width = 5, height = 5, dpi=600, scale = 3, units = "cm") #saves 
