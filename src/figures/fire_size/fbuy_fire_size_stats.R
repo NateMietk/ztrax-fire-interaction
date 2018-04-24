@@ -41,5 +41,5 @@ p_bu_area <- p_df %>%
                   title = 'Built-up area within wildfire (ha)',
                   xlab = 'BU area (ha)',
                   ylab = 'Years')
-ggsave("results/fire_size/fbuy/fbuy_bu_area_fire_size.pdf", p_bu_num, width = 5, height = 5, dpi=600, scale = 3, units = "cm") #saves 
+ggsave("results/fire_size/fbuy/fbuy_bu_area_fire_size.pdf", p_bu_area, width = 5, height = 5, dpi=600, scale = 3, units = "cm") #saves 
 
