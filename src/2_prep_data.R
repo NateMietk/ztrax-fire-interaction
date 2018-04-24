@@ -264,7 +264,8 @@ if (!file.exists(file.path(mtbs_out, "mtbs_bui_5yr.gpkg"))) {
                                       ifelse(fire_bidecadal == "2005", BUI_2005,
                                              ifelse(fire_bidecadal == "2010", BUI_2010,
                                                     ifelse(fire_bidecadal == "2015", BUI_2015,
-                                                           0)))))))
+                                                           0)))))),
+           fire_size = classify_fire_size(mtbs_acres))
   st_write(extraction_df, file.path(mtbs_out, "mtbs_bui_5yr.gpkg"),
            delete_layer = TRUE)
 
