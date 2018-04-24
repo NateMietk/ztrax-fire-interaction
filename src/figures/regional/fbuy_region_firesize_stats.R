@@ -26,7 +26,7 @@ p1 <- p_df %>%
   theme_pub() +
   facet_wrap(region~fire_size, ncol = 4) +
   theme(legend.position = 'none')
-ggsave("results/region/fbuy/fbuy_pct_region_firesize.pdf", p1, width = 8, height = 3, dpi=600, scale = 3, units = "cm") #saves g
+ggsave("results/fire_size/fbuy/fbuy_pct_region_firesize.pdf", p1, width = 8, height = 6, dpi=600, scale = 3, units = "cm") #saves g
 
 p2 <- p_df %>%
   transform(region = factor(region, levels=c("East", "Central", "West"))) %>%
@@ -38,4 +38,4 @@ p2 <- p_df %>%
   theme_pub() +
   facet_wrap(region~fire_size, ncol = 4) +
   theme(legend.position = 'none')
-ggsave("results/region/fbuy/fbuy_pctoftotal_region_firesize.pdf", p2, width = 8, height = 3, dpi=600, scale = 3, units = "cm") #saves g
+ggsave("results/fire_size/fbuy/fbuy_pctoftotal_region_firesize.pdf", p2, width = 8, height = 6, dpi=600, scale = 3, units = "cm") #saves g

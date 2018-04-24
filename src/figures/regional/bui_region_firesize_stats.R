@@ -13,7 +13,7 @@ p_df <- as.data.frame(extraction_df) %>%
 
 p1 <- p_df %>%
   transform(region = factor(region, levels=c("East", "Central", "West"))) %>%
-  transform(fire_size = factor(fire_size, levels=c("< 1000", "1000 - 10000", '10000 - 50000', '> 50000'))) %>%
+  transform(fire_size = factor(fire_size, levels=c("500 - 5000", "5000 - 25000", '25000 - 50000', '> 50000'))) %>%
   ggplot(aes(x = fire_bidecadal, y = bui_ha, fill = region)) +
   geom_bar(stat = 'identity') +
   ylab("Built-up intentsity (ha)") +
@@ -21,11 +21,11 @@ p1 <- p_df %>%
   theme_pub() +
   facet_wrap(region~fire_size, ncol = 4) +
   theme(legend.position = 'none')
-ggsave("results/region/bui/bui_region_firesize.pdf", p1, width = 8, height = 3, dpi=600, scale = 3, units = "cm") #saves g
+ggsave("results/fire_size/bui/bui_region_firesize.pdf", p1, width = 8, height = 6, dpi=600, scale = 3, units = "cm") #saves g
 
 p2 <- p_df %>%
   transform(region = factor(region, levels=c("East", "Central", "West"))) %>%
-  transform(fire_size = factor(fire_size, levels=c("< 1000", "1000 - 10000", '10000 - 50000', '> 50000'))) %>%
+  transform(fire_size = factor(fire_size, levels=c("500 - 5000", "5000 - 25000", '25000 - 50000', '> 50000'))) %>%
   ggplot(aes(x = fire_bidecadal, y = burned_area*0.0001, fill = region)) +
   geom_bar(stat = 'identity') +
   ylab("Burned area (0.0001*ha)") +
@@ -33,11 +33,11 @@ p2 <- p_df %>%
   theme_pub() +
   facet_wrap(region~fire_size, ncol = 4) +
   theme(legend.position = 'none')
-ggsave("results/region/bui/burn_region_firesize.pdf", p2, width = 8, height = 3, dpi=600, scale = 3, units = "cm") #saves g
+ggsave("results/fire_size/bui/burn_region_firesize.pdf", p2, width = 8, height = 6, dpi=600, scale = 3, units = "cm") #saves g
 
 p3 <- p_df %>%
   transform(region = factor(region, levels=c("East", "Central", "West"))) %>%
-  transform(fire_size = factor(fire_size, levels=c("< 1000", "1000 - 10000", '10000 - 50000', '> 50000'))) %>%
+  transform(fire_size = factor(fire_size, levels=c("500 - 5000", "5000 - 25000", '25000 - 50000', '> 50000'))) %>%
   ggplot(aes(x = fire_bidecadal, y = BUI_firearea_prop, fill = region)) +
   geom_bar(stat = 'identity') +
   ylab("Proportion of BUI to burned area (%)") +
@@ -45,8 +45,6 @@ p3 <- p_df %>%
   theme_pub()  +
   facet_wrap(region~fire_size, ncol = 4) +
   theme(legend.position = 'none')
-ggsave("results/region/bui/prop_region_firesize.pdf", p3, width = 8, height = 3, dpi=600, scale = 3, units = "cm") #saves g
+ggsave("results/fire_size/bui/prop_region_firesize.pdf", p3, width = 8, height = 6, dpi=600, scale = 3, units = "cm") #saves g
 
-g <- arrangeGrob(p1, p2, p3, ncol = 1)
-ggsave("results/region/bui/bui_firearea_prop_region_firesize.pdf", g, width = 8, height = 9, dpi=600, scale = 3, units = "cm") #saves g
-system(paste0("aws s3 sync results ", s3_results))
+system(paste0("aws s3 cp results ", s3_results, ' --recursive'))
