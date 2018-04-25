@@ -1,31 +1,31 @@
 
 # check to see where the min. diffs fall in plot
 firefreq_90 <- as.data.frame(extraction_df) %>%
-  hist_plot_fire_size(., fire_sizes = '< 1000', year = '1990', panel = '1', 
+  hist_plot_fire_size(., fire_sizes = '500 - 5000', year = '1990', panel = '1', 
                       upper = 40, conus =FALSE)
 
 firefreq_95 <- as.data.frame(extraction_df) %>%
-  hist_plot_fire_size(., fire_sizes = '< 1000', year = '1995', panel = '2', 
+  hist_plot_fire_size(., fire_sizes = '500 - 5000', year = '1995', panel = '2', 
                       upper = 40, conus =FALSE)
 
 firefreq_00 <- as.data.frame(extraction_df) %>%
-  hist_plot_fire_size(., fire_sizes = '< 1000',  year = '2000', panel = '3', 
+  hist_plot_fire_size(., fire_sizes = '500 - 5000',  year = '2000', panel = '3', 
                       upper = 40, conus =FALSE)
 
 firefreq_05 <- as.data.frame(extraction_df) %>%
-  hist_plot_fire_size(., fire_sizes = '< 1000', year = '2005', panel = '4', 
+  hist_plot_fire_size(., fire_sizes = '500 - 5000', year = '2005', panel = '4', 
                       upper = 40, conus =FALSE)
 
 firefreq_10 <- as.data.frame(extraction_df) %>%
-  hist_plot_fire_size(., fire_sizes = '< 1000',  year = '2010', panel = '5', 
+  hist_plot_fire_size(., fire_sizes = '500 - 5000',  year = '2010', panel = '5', 
                       upper = 40, conus =FALSE)
 
 firefreq_15 <- as.data.frame(extraction_df) %>%
-  hist_plot_fire_size(., fire_sizes = '< 1000',  year = '2015', panel = '6', 
+  hist_plot_fire_size(., fire_sizes = '500 - 5000',  year = '2015', panel = '6', 
                       upper = 40, conus =FALSE)
 
 g <- arrangeGrob(firefreq_90, firefreq_95, firefreq_00, firefreq_05, firefreq_10, firefreq_15, nrow = 1)
-ggsave("results/bui/bui_hist_per5yr_1000.pdf", g, width = 13, height = 4, dpi=600, scale = 4, units = "cm") #saves g
+ggsave("results/fire_size/bui/bui_hist_per5yr_500 - 5000.pdf", g, width = 13, height = 4, dpi=600, scale = 4, units = "cm") #saves g
 
 
 # check to see where the min. diffs fall in plot
