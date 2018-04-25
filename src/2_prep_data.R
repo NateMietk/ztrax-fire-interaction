@@ -185,6 +185,20 @@ if (!exists('mtbs_fire')) {
   }
 }
 
+
+# Import the buidling units data
+buc_list <- list.files(file.path(anthro_out, 'building_counts', 'building_counts_all'),
+                       full.names = TRUE)
+
+# setup parallel environment
+sfInit(parallel = TRUE, cpus = parallel::detectCores())
+sfExport(list = c("mtbs_fire"))
+
+extractions_buc <- sfLapply(as.list(buc_list),
+                        fun = extract_one,
+                        shapefile_extractor = mtbs_fire)
+sfStop()
+
 # Import the BUI data
 bui_list <- list.files(file.path(anthro_out, 'built_up_intensity', 'BUI'),
                        pattern = "*.tif",
