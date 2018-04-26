@@ -28,14 +28,14 @@ if (!exists('ecoregl1')) {
 
     ecoregl1 <- st_read(dsn = ecoregion_out, layer = "NA_CEC_Eco_Level1") %>%
       st_transform(st_crs(usa_shp)) %>%  # e.g. US National Atlas Equal Area
-      st_simplify(., preserveTopology = TRUE, dTolerance = 1000) %>%
+      #st_simplify(., preserveTopology = TRUE, dTolerance = 1000) %>%
       st_make_valid() %>%
-      st_intersection(., usa_shp) %>%
+      st_intersection(., st_union(usa_shp)) %>%
       mutate(region = as.factor(if_else(NA_L1NAME %in% c("EASTERN TEMPERATE FORESTS",
                                                          "TROPICAL WET FORESTS",
                                                          "NORTHERN FORESTS"), "East",
                                         if_else(NA_L1NAME %in% c("NORTH AMERICAN DESERTS",
-                                                                 "SOUTHERN SEMI-ARID HIGHLANDS",
+                                                                 "SOUTHERN SEMIARID HIGHLANDS",
                                                                  "TEMPERATE SIERRAS",
                                                                  "MEDITERRANEAN CALIFORNIA",
                                                                  "NORTHWESTERN FORESTED MOUNTAINS",
@@ -70,7 +70,6 @@ if (!exists('ecoreg')) {
 
     ecoreg <- st_read(dsn = ecoregion_out, layer = "us_eco_l3", quiet= TRUE) %>%
       st_transform(st_crs(usa_shp)) %>%  # e.g. US National Atlas Equal Area
-      st_simplify(., preserveTopology = TRUE, dTolerance = 1000) %>%
       dplyr::select(US_L3CODE, US_L3NAME, NA_L2CODE, NA_L2NAME, NA_L1CODE, NA_L1NAME) %>%
       st_intersection(., usa_shp) %>%
       mutate(region = as.factor(if_else(NA_L1NAME %in% c("EASTERN TEMPERATE FORESTS",
@@ -88,7 +87,8 @@ if (!exists('ecoreg')) {
                                                  as.character(region))))) %>%
       setNames(tolower(names(.)))
 
-    st_write(ecoreg, file.path(ecoregion_out, 'us_eco_l3.gpkg'), driver = 'GPKG')
+    st_write(ecoreg, file.path(ecoregion_out, 'us_eco_l3.gpkg'),
+             driver = 'GPKG', delete_layer = TRUE)
 
     system(paste0("aws s3 sync ",
                   prefix, " ",
@@ -210,75 +210,6 @@ if (!exists('fbuy_extractions')) {
 
 fbuy_raster[fbuy_raster == 1] <- NA
 
-# Import the buidling units data
-
-if (!file.exists(file.path(anthro_out, 'building_counts', 'building_counts_all', 'bu_masked_1990.tif'))) {
-  buc_list <- list.files(file.path(anthro_out, 'building_counts', 'building_counts_all'),
-                         pattern = 'temp_slice',
-                         full.names = TRUE)
-  bu <- do.call(brick, lapply(buc_list, raster))
-  bu_masked <- mask(bu, fbuy_raster)
-
-  # Modis date creation
-  year_seq <- c(1990, 1995, 2000, 2005, 2010, 2015)
-
-  bu_masked <- setZ(bu_masked, year_seq, 'years')
-  names(bu_masked) <- paste0("bu_masked_", year_seq)
-
-  writeRaster(bu_masked,
-              filename = file.path(anthro_out, 'building_counts', 'building_counts_all', names(bu_masked)),
-              bylayer=TRUE, format="GTiff")
-  system(paste0("aws s3 sync ", prefix, " ", s3_base))
-
-} else {
-
-  buc_list <- list.files(file.path(anthro_out, 'building_counts', 'building_counts_all'),
-                         pattern = 'masked',
-                         full.names = TRUE)
-  bu <- do.call(brick, lapply(buc_list, raster))
-}
-
-pdsi_mean <- data.frame(usa_shp$stusps,
-                        raster::extract(bu, usa_shp, na.rm = TRUE, stat = 'sum'))
-
-names(pdsi_mean) <- c("domains", paste(year(date_seq), month(date_seq),
-                                       day(date_seq), sep = "-"))
-
-pdsi_mean_cln <- pdsi_mean %>%
-  gather( year, value, -domains) %>%
-  group_by(domains) %>%
-  arrange(domains) %>%
-  mutate( med_5yr =rollapply(value, 36, mean, align='center', fill=NA)) %>%
-  ungroup() %>%
-  mutate(date = as.POSIXct(year, format = "%Y-%m-%d"),
-         month = month(date)) %>%
-  filter(month %in% c(6, 7, 8))
-
-bu_conus <- extract(bu, usa_shp, na.rm = TRUE, stat = 'sum', df = TRUE)
-
-
-# setup parallel environment
-sfInit(parallel = TRUE, cpus = parallel::detectCores())
-sfExport(list = c("fpa"))
-
-extractions_buc <- sfLapply(as.list(buc_list),
-                            fun = extract_one,
-                            shapefile_extractor = fpa)
-sfStop()
-
-# Import the BUI data
-bui_list <- list.files(file.path(anthro_out, 'built_up_intensity', 'BUI'),
-                       pattern = "*.tif",
-                       full.names = TRUE)
-
-# setup parallel environment
-sfInit(parallel = TRUE, cpus = parallel::detectCores())
-sfExport(list = c("mtbs_fire"))
-
-extractions <- sfLapply(as.list(bui_list),
-                        fun = extract_one,
-                        shapefile_extractor = mtbs_fire)
-sfStop()
 
 
 
