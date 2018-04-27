@@ -13,8 +13,8 @@ load_data <- function(url, dir, layer, outname) {
   name
 }
 
-extract_one <- function(filename, shapefile_extractor, 
-                        usevarname = TRUE, varname,
+extract_one <- function(filename, shapefile_extractor,
+                        use_varname = TRUE, varname,
                         prefix = prefix, s3_base = s3_base) {
   # function to extract all climate time series based on shapefile input
   # this results in large list of all months/years within the raster climate data
@@ -24,28 +24,29 @@ extract_one <- function(filename, shapefile_extractor,
   # shapefile_extractor -> the shapefile (point or polygon) to extract climate data
   require(tidyverse)
   require(raster)
-  
-  if (usevarname == TRUE) {
+
+  if (use_varname == TRUE) {
     file_split <- filename %>%
       basename %>%
       strsplit(split = "_") %>%
       unlist
     year <- file_split[max(length(file_split))]
+
     out_name <- paste0(varname, year)
-    out_name <- gsub('.tif', '.csv', out_name) 
-    
+    out_name <- gsub('.tif', '.csv', out_name)
+
     } else {
-      out_name <- gsub('.tif', '.csv', filename) 
-      
-      }
+      out_name <- gsub('.tif', '.csv', filename)
+    }
+
   if (!file.exists(out_name)) {
     res <- raster::extract(raster::raster(filename), shapefile_extractor,
                            na.rm = TRUE, stat = 'sum', df = TRUE)
-    write_csv(res, file = out_name)
-    
+    write.csv(res, file = out_name)
+
     system(paste0("aws s3 sync ", prefix, " ", s3_base))
   } else {
-    res <- read_csv(out_name)
+    res <- read.csv(out_name)
     }
   res
   }
@@ -96,14 +97,14 @@ hist_plot <- function(df, regions, year, panel, upper = 250, conus = TRUE) {
   if(conus == FALSE) {
     p_df <- df %>%
       filter(region != as.character(regions)) %>%
-      mutate(bui_ha = BUI*0.0001000000884, 
+      mutate(bui_ha = BUI*0.0001000000884,
              mean_bui = mean(BUI*0.0001000000884))
   } else {
     p_df <- df %>%
-      mutate(bui_ha = BUI*0.0001000000884, 
+      mutate(bui_ha = BUI*0.0001000000884,
              mean_bui = mean(BUI*0.0001000000884))
   }
-  
+
   p_template <- p_df %>%
     ggplot(aes(x = log(bui_ha))) +
     geom_histogram(binwidth = 0.25) +
@@ -116,12 +117,12 @@ hist_plot <- function(df, regions, year, panel, upper = 250, conus = TRUE) {
     group_by(PANEL) %>%
     summarize(max_count = max(count)) %>%
     ungroup()
-  
+
   mx_info <- ggplot_build(p_template)$data[[1]] %>%
     tbl_df %>%
     left_join(., mx_cnt, by = 'PANEL') %>%
     filter(y == max_count)
-  
+
   mx_stats <- mx_info %>%
     mutate(fire_bidecadal = sort(unique(p_df$fire_bidecadal))) %>%
     right_join(., p_df, by = "fire_bidecadal") %>%
@@ -137,7 +138,7 @@ hist_plot <- function(df, regions, year, panel, upper = 250, conus = TRUE) {
 
   p <- p_df %>%
     filter(fire_bidecadal == as.numeric(year)) %>%
-    mutate(bui_ha = BUI*0.0001000000884, 
+    mutate(bui_ha = BUI*0.0001000000884,
            mean_bui = mean(BUI*0.0001000000884)) %>%
     ggplot(aes(x = log(bui_ha))) +
     geom_histogram(binwidth = 0.5) +
@@ -148,49 +149,49 @@ hist_plot <- function(df, regions, year, panel, upper = 250, conus = TRUE) {
     ggtitle(year) +
     theme_pub() +
     geom_text(aes(label = 'Peak:'), x = -7, y = upper, colour = "darkred", size = 5) +
-    geom_vline(aes(xintercept = x), data = subset(mx_info, PANEL == as.character(panel)), 
+    geom_vline(aes(xintercept = x), data = subset(mx_info, PANEL == as.character(panel)),
                linetype = "dashed", color  = "darkred") +
     geom_text(data=subset(mx_info, PANEL == as.character(panel)),
-              aes(label=paste(formatC(round(exp(x)*10000, 1), format="f", big.mark=",", digits=1), "sq m"), 
+              aes(label=paste(formatC(round(exp(x)*10000, 1), format="f", big.mark=",", digits=1), "sq m"),
                   x = -5, y = upper - upper*0.056), colour = "darkred", size = 4) +
-    
+
     geom_text(aes(label = 'Mean:'), x = -7, y = upper - upper*0.12, colour = "blue", size = 5) +
-    geom_vline(aes(xintercept = logmean_bui), data = subset(mx_stats, fire_bidecadal ==  year), 
+    geom_vline(aes(xintercept = logmean_bui), data = subset(mx_stats, fire_bidecadal ==  year),
                linetype = "dashed", color  = "blue") +
     geom_text(data = subset(mx_stats, fire_bidecadal ==  year),
-              aes(label = paste(formatC(round(mean_bui*10000, 1), format="f", big.mark=",", digits=1), "sq m"), 
+              aes(label = paste(formatC(round(mean_bui*10000, 1), format="f", big.mark=",", digits=1), "sq m"),
                   x = -5, y = upper - upper*0.176), colour = "blue", size = 4) +
-    
+
     geom_text(aes(label = '95th:'), x = -7, y = upper - upper*0.28, colour = "darkgreen", size = 5) +
-    geom_vline(aes(xintercept = logpct_95th), data = subset(mx_stats, fire_bidecadal ==  year), 
+    geom_vline(aes(xintercept = logpct_95th), data = subset(mx_stats, fire_bidecadal ==  year),
                linetype = "dashed", color  = "darkgreen") +
     geom_text(data = subset(mx_stats, fire_bidecadal ==  year),
-              aes(label = paste(formatC(round(pct_95th*10000, 1), format="f", big.mark=",", digits=1), "sq m"), 
+              aes(label = paste(formatC(round(pct_95th*10000, 1), format="f", big.mark=",", digits=1), "sq m"),
                   x = -5, y = upper - upper*0.336), colour = "darkgreen", size = 4) +
     theme(legend.position = "none")
   p
 }
 
 hist_fbuy_plot <- function(df, regions, panel, upper = 250) {
-  
+
   p_template <- df %>%
     filter(fbuy_mean != 0) %>%
     ggplot(aes(x = fbuy_mean)) +
     geom_histogram(binwidth = 5) +
     theme_pub()
-  
+
   mx_cnt <- ggplot_build(p_template)$data[[1]] %>%
     tbl_df %>%
     dplyr::select(y, x, count, PANEL) %>%
     group_by(PANEL) %>%
     summarize(max_count = max(count)) %>%
     ungroup()
-  
+
   mx_info <- ggplot_build(p_template)$data[[1]] %>%
     tbl_df %>%
     left_join(., mx_cnt, by = 'PANEL') %>%
     filter(y == max_count)
-  
+
   mx_stats <- df %>%
     filter(fbuy_mean != 0) %>%
     group_by(region) %>%
@@ -210,26 +211,25 @@ hist_fbuy_plot <- function(df, regions, panel, upper = 250) {
     ggtitle(regions) +
     theme_pub() +
     geom_text(aes(label = 'Peak:'), x = 1875, y = upper, colour = "darkred", size = 5) +
-    geom_vline(aes(xintercept = x), data = subset(mx_info, PANEL == as.character(panel)), 
+    geom_vline(aes(xintercept = x), data = subset(mx_info, PANEL == as.character(panel)),
                linetype = "dashed", color  = "darkred") +
     geom_text(data=subset(mx_info, PANEL == as.character(panel)),
-              aes(label=round(x, 0), 
+              aes(label=round(x, 0),
                   x = 1865, y = upper - upper*0.056), colour = "darkred", size = 4) +
-    
+
     geom_text(aes(label = 'Mean:'), x = 1875, y = upper - upper*0.12, colour = "blue", size = 5) +
     geom_vline(aes(xintercept = mean_fbuy), data = mx_stats,
                linetype = "dashed", color  = "blue") +
     geom_text(data = mx_stats,
-              aes(label = round(mean_fbuy, 0), 
+              aes(label = round(mean_fbuy, 0),
                   x = 1865, y = upper - upper*0.176), colour = "blue", size = 4) +
-    
+
     geom_text(aes(label = '95th:'), x = 1875, y = upper - upper*0.28, colour = "darkgreen", size = 5) +
     geom_vline(aes(xintercept = pct_95th), data = mx_stats,
                linetype = "dashed", color  = "darkgreen") +
     geom_text(data = mx_stats,
-              aes(label = round(pct_95th, 0), 
+              aes(label = round(pct_95th, 0),
                   x = 1865, y = upper - upper*0.336), colour = "darkgreen", size = 4) +
     theme(legend.position = "none")
   p
 }
-

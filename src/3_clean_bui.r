@@ -33,12 +33,12 @@ if (!exists('usa_bui')) {
     sfInit(parallel = TRUE, cpus = parallel::detectCores())
     sfExport(list = c('usa_shp'))
     sfSource('src/functions/helper_functions.R')
-    
+
     regions_bui <- sfLapply(bui_list, fun = extract_one,
-                            shapefile_extractor = usa_shp, 
-                            prefix = prefix, s3_base = s3_base,
-                            stack = FALSE)
-    
+                            use_varname = TRUE, varname = 'bui_state_',
+                            shapefile_extractor = usa_shp,
+                            prefix = prefix, s3_base = s3_base)
+
     sfStop()
 
     usa_bui <- usa_bui %>%
@@ -65,21 +65,21 @@ if (!exists('region_bui')) {
     sfInit(parallel = TRUE, cpus = parallel::detectCores())
     sfExport(list = c('regions'))
     sfSource('src/functions/helper_functions.R')
-    
+
     regions_bui <- sfLapply(bui_list, fun = extract_one,
-                            usevarname = TRUE, varname = 'bui_regional_',
-                            shapefile_extractor = regions, 
+                            use_varname = TRUE, varname = 'bui_regional_',
+                            shapefile_extractor = regions,
                             prefix = prefix, s3_base = s3_base)
-    
+
     sfStop()
-    
+
     regions_bui <- regions_bui %>%
       bind_cols %>%
       as_tibble %>%
       mutate(index = ID) %>%
       dplyr::select(-starts_with("ID")) %>%
       rename(ID = index)
-    
+
       group_by(ID) %>%
       summarise_all(funs(sum), na.rm = TRUE) %>%
       mutate(fpa_id = data.frame(ecoregl1)$region)
