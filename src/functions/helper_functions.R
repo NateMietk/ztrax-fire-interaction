@@ -13,28 +13,42 @@ load_data <- function(url, dir, layer, outname) {
   name
 }
 
-extract_one <- function(filename, shapefile_extractor, prefix = prefix, s3_base = s3_base) {
+extract_one <- function(filename, shapefile_extractor, 
+                        usevarname = TRUE, varname,
+                        prefix = prefix, s3_base = s3_base) {
   # function to extract all climate time series based on shapefile input
   # this results in large list of all months/years within the raster climate data
   # each list is written out to a csv so this only needs to be run once.
   # inputs:
   # filename -> a list of all tif filenames with full path
   # shapefile_extractor -> the shapefile (point or polygon) to extract climate data
-
-  out_name <- gsub('.tif', '.csv', filename)
+  require(tidyverse)
+  require(raster)
+  
+  if (usevarname == TRUE) {
+    file_split <- filename %>%
+      basename %>%
+      strsplit(split = "_") %>%
+      unlist
+    year <- file_split[max(length(file_split))]
+    out_name <- paste0(varname, year)
+    out_name <- gsub('.tif', '.csv', out_name) 
+    
+    } else {
+      out_name <- gsub('.tif', '.csv', filename) 
+      
+      }
   if (!file.exists(out_name)) {
     res <- raster::extract(raster::raster(filename), shapefile_extractor,
                            na.rm = TRUE, stat = 'sum', df = TRUE)
-    write.csv(res, file = out_name)
-
-    system(paste0("aws s3 sync ",
-                  prefix, " ",
-                  s3_base))
+    write_csv(res, file = out_name)
+    
+    system(paste0("aws s3 sync ", prefix, " ", s3_base))
   } else {
-    res <- read.csv(out_name)
-  }
+    res <- read_csv(out_name)
+    }
   res
-}
+  }
 
 classify_fire_size <-  function(x) {
   # break out fires into small, med, large
