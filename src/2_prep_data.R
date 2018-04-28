@@ -193,16 +193,16 @@ if (!exists('mtbs_fire')) {
 }
 
 if (!exists('fpa')) {
-  fpa <- st_read(file.path(fpa_out, 'fpa_mtbs_bae.gpkg'))
+  fpa <- st_read(file.path(fpa_out, 'fpa_mtbs_bae.gpkg')) %>%
+    dplyr::select(FPA_ID) %>%
+    st_cast("POLYGON")
 }
 
-if (!file.exists(file.path(fpa_out, 'fpa_buffer_10k.gpkg'))) {
+st_multibuffer <- function (ids, data, varname) {
+  require(sf)
+  require(tidyverse)
 
-  test <- fpa %>%
-    slice(1:10) %>%
-    st_cast("POLYGON")
-
-  st_multibuffer <- function (ids, data) {
+  if (!file.exists(file.path(fpa_out, paste0(varname, '.gpkg')))) {
 
     df <- subset(data, data$FPA_ID == ids) %>%
       dplyr::select(FPA_ID)
@@ -213,89 +213,71 @@ if (!file.exists(file.path(fpa_out, 'fpa_buffer_10k.gpkg'))) {
       mutate(buffer_distance = 1000,
              geometry = st_difference(ring, geometry)) %>%
       ungroup()
-    df
+    st_write(fpa_buffer, file.path(fpa_out, paste0(varname, '.gpkg')),
+             driver = 'GPKG')
+    system(paste0("aws s3 sync ", prefix, " ", s3_base))
+
+    fpa_buffer
+
+  } else {
+    fpa_buffer <- st_read(file.path(fpa_out, paste0(varname, '.gpkg')))
+    fpa_buffer
+    }
   }
 
+sfInit(parallel = TRUE, cpus = parallel::detectCores())
+sfExport(list = c('fpa'))
 
-  sfInit(parallel = TRUE, cpus = parallel::detectCores())
-  sfExport(list = c('test'))
-  #sfSource('src/functions/helper_functions.R')
+fpa_1k <- sfLapply(unique(fpa$FPA_ID),
+               fun = st_multibuffer,
+               data = fpa,
+               varname = 'fpa_buffer_1k')
+sfStop()
 
-  tester <- sfLapply(unique(test$FPA_ID),
-                 fun = st_multibuffer,
-                 data = test)
-  sfStop()
+sfInit(parallel = TRUE, cpus = parallel::detectCores())
+sfExport(list = c('fpa_1k'))
 
+fpa_2k <- sfLapply(unique(fpa_1k$FPA_ID),
+                   fun = st_multibuffer,
+                   data = fpa_1k,
+                   varname = 'fpa_buffer_2k')
+sfStop()
 
+sfInit(parallel = TRUE, cpus = parallel::detectCores())
+sfExport(list = c('fpa_2k'))
 
-  fpa_1k <- test %>%
-    mutate(ring = st_buffer(geometry, 1000)) %>%
-    group_by(FPA_ID) %>%
-    mutate(buffer_distance = 1000,
-           geometry = st_difference(ring, geometry)) %>%
-    ungroup()
-  st_write(fpa_1k, file.path(fpa_out, 'fpa_buffer_1k.gpkg'),
-           driver = 'GPKG', delete_layer = TRUE)
+fpa_3k <- sfLapply(unique(fpa_2k$FPA_ID),
+                   fun = st_multibuffer,
+                   data = fpa_2k,
+                   varname = 'fpa_buffer_3k')
+sfStop()
 
-  fpa_2k <- fpa_1k %>%
-    mutate(
-      ring = st_buffer(geom, 1000)
-    ) %>%
-    group_by(FPA_ID) %>%
-    mutate(buffer_distance = 2000,
-           geom = st_difference(ring, geom)) %>%
-    ungroup()
-  st_write(fpa_2k, file.path(fpa_out, 'fpa_buffer_2k.gpkg'),
-           driver = 'GPKG', delete_layer = TRUE)
+sfInit(parallel = TRUE, cpus = parallel::detectCores())
+sfExport(list = c('fpa_3k'))
 
-  fpa_3k <- fpa_2k %>%
-    mutate(
-      ring = st_buffer(geom, 1000)
-    ) %>%
-    group_by(FPA_ID) %>%
-    mutate(buffer_distance = 3000,
-           geom = st_difference(ring, geom)) %>%
-    ungroup()
-  st_write(fpa_3k, file.path(fpa_out, 'fpa_buffer_3k.gpkg'),
-           driver = 'GPKG', delete_layer = TRUE)
+fpa_4k <- sfLapply(unique(fpa_3k$FPA_ID),
+                   fun = st_multibuffer,
+                   data = fpa_3k,
+                   varname = 'fpa_buffer_4k')
+sfStop()
 
+sfInit(parallel = TRUE, cpus = parallel::detectCores())
+sfExport(list = c('fpa_4k'))
 
-  fpa_4k <- fpa_3k %>%
-    mutate(
-      ring = st_buffer(geom, 1000)
-    ) %>%
-    group_by(FPA_ID) %>%
-    mutate(buffer_distance = 4000,
-           geom = st_difference(ring, geom)) %>%
-    ungroup()
-  st_write(fpa_4k, file.path(fpa_out, 'fpa_buffer_4k.gpkg'),
-           driver = 'GPKG', delete_layer = TRUE)
+fpa_5k <- sfLapply(unique(fpa_4k$FPA_ID),
+                   fun = st_multibuffer,
+                   data = fpa_4k,
+                   varname = 'fpa_buffer_5k')
+sfStop()
 
-  fpa_5k <- fpa_4k %>%
-    mutate(
-      ring = st_buffer(geom, 1000)
-    ) %>%
-    group_by(FPA_ID) %>%
-    mutate(buffer_distance = 5000,
-           geom = st_difference(ring, geom)) %>%
-    ungroup()
-  st_write(fpa_5k, file.path(fpa_out, 'fpa_buffer_5k.gpkg'),
-           driver = 'GPKG', delete_layer = TRUE)
+sfInit(parallel = TRUE, cpus = parallel::detectCores())
+sfExport(list = c('fpa_5k'))
 
-  fpa_10k <- fpa_5k %>%
-    mutate(
-      ring = st_buffer(geom, 5000)
-    ) %>%
-    group_by(FPA_ID) %>%
-    mutate(buffer_distance = 10000,
-           geom = st_difference(ring, geom)) %>%
-    ungroup()
-  st_write(fpa_10k, file.path(fpa_out, 'fpa_buffer_10k.gpkg'),
-           driver = 'GPKG', delete_layer = TRUE)
-
-  system(paste0("aws s3 sync ", prefix, " ", s3_base))
-
-  }
+fpa_10k <- sfLapply(unique(fpa_5k$FPA_ID),
+                   fun = st_multibuffer,
+                   data = fpa_5k,
+                   varname = 'fpa_buffer_10k')
+sfStop()
 
 # Import the FBUY data
 if (!exists('fbuy_extractions')) {
