@@ -189,6 +189,50 @@ if (!exists('fpa')) {
   fpa <- st_read(file.path(fpa_out, 'fpa_mtbs_bae.gpkg'))
 }
 
+if (!exists('fpa_buffers')) {
+  if (!file.exists(file.path(fpa_out, 'fpa_buffer.gpkg'))) {
+
+    test <- fpa %>%
+      slice(1:10) %>%
+      dplyr::select(FPA_ID)
+
+    #distances for buffers                                                                                                                                                                                                                                                                                                                                                                               "aggregate", "identity"), .Names = "AREA"))                                                                                                                                                                                                                                                                                                                        "aggregate", "identity"), .Names = "AREA")
+
+    tester <- lapply(unique(test$FPA_ID),
+                     FUN = st_multiring,
+                     data = test,
+                     dist = c(1000,2000)
+                     )
+
+    st_multiring <- function(ids, data, dist) {
+      lstbuffers <- list()
+
+      for (i in seq(dist)){
+
+        df <- subset(data, data$FPA_ID == ids) %>%
+          dplyr::select()
+
+        #first buffer
+        if (i == 1) {
+          lstbuffers[[i]] <- st_buffer(df, dist[i])
+
+        } else {
+          #next buffers as rings around the previous
+          lstbuffers[[i]] <- st_difference(st_buffer(df, dist[i]),
+                                           st_buffer(df, dist[i - 1]))
+        }
+        lstbuffers[[i]]$radius <- dist[i] #add the radius
+        lstbuffers[[i]]$FPA_ID <- ids[i] #add the radius
+
+        }
+    }
+
+
+    buffers <- do.call(rbind, lstbuffers)
+
+  }
+}
+
 # Import the FBUY data
 if (!exists('fbuy_extractions')) {
   if( !file.exists('data/anthro/first_year_built/FBUY/FBUY.csv')) {
