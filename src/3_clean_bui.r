@@ -120,12 +120,13 @@ if (!exists('ecoreg_bui')) {
       as_tibble %>%
       mutate(index = ID) %>%
       dplyr::select(-starts_with("ID")) %>%
+      dplyr::select(-starts_with("X")) %>%
       rename(ID = index) %>%
       group_by(ID) %>%
       summarise_all(funs(sum), na.rm = TRUE) %>%
       mutate(ecoregion_id = data.frame(ecoregions)$us_l3name)
 
-    write_rds(regions_bui_df, file.path(anthro_out, 'built_up_intensity', 'BUI', 'ecoregion_bui.rds'))
+    write_rds(ecoregions_bui_df, file.path(anthro_out, 'built_up_intensity', 'BUI', 'ecoregion_bui.rds'))
     system(paste0("aws s3 sync ", prefix, " ", s3_base))
 
   }

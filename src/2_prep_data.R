@@ -68,6 +68,12 @@ if (!exists('ecoreg')) {
       assert_that(file.exists(ecoregion_shp))
     }
 
+    ecoreg_plain <- st_read(dsn = ecoregion_out, layer = "us_eco_l3", quiet= TRUE) %>%
+      st_transform(st_crs(usa_shp)) %>%  # e.g. US National Atlas Equal Area
+      dplyr::select(US_L3CODE, US_L3NAME, NA_L2CODE, NA_L2NAME, NA_L1CODE, NA_L1NAME) %>%
+      st_intersection(., st_union(usa_shp)) %>%
+      setNames(tolower(names(.)))
+
     ecoreg <- st_read(dsn = ecoregion_out, layer = "us_eco_l3", quiet= TRUE) %>%
       st_transform(st_crs(usa_shp)) %>%  # e.g. US National Atlas Equal Area
       dplyr::select(US_L3CODE, US_L3NAME, NA_L2CODE, NA_L2NAME, NA_L1CODE, NA_L1NAME) %>%
@@ -87,14 +93,15 @@ if (!exists('ecoreg')) {
                                                  as.character(region))))) %>%
       setNames(tolower(names(.)))
 
+    st_write(ecoreg_plain, file.path(ecoregion_out, 'us_eco_plain.gpkg'),
+             driver = 'GPKG', delete_layer = TRUE)
     st_write(ecoreg, file.path(ecoregion_out, 'us_eco_l3.gpkg'),
              driver = 'GPKG', delete_layer = TRUE)
 
-    system(paste0("aws s3 sync ",
-                  prefix, " ",
-                  s3_base))
+    system(paste0("aws s3 sync ", prefix, " ", s3_base))
 
   } else {
+    ecoreg_plain <- st_read( file.path(ecoreg_plain, 'us_eco_plain.gpkg'))
     ecoreg <- sf::st_read(file.path(ecoregion_out, 'us_eco_l3.gpkg'))
   }
 }
@@ -189,49 +196,106 @@ if (!exists('fpa')) {
   fpa <- st_read(file.path(fpa_out, 'fpa_mtbs_bae.gpkg'))
 }
 
-if (!exists('fpa_buffers')) {
-  if (!file.exists(file.path(fpa_out, 'fpa_buffer.gpkg'))) {
+if (!file.exists(file.path(fpa_out, 'fpa_buffer_10k.gpkg'))) {
 
-    test <- fpa %>%
-      slice(1:10) %>%
+  test <- fpa %>%
+    slice(1:10) %>%
+    st_cast("POLYGON")
+
+  st_multibuffer <- function (ids, data) {
+
+    df <- subset(data, data$FPA_ID == ids) %>%
       dplyr::select(FPA_ID)
 
-    #distances for buffers                                                                                                                                                                                                                                                                                                                                                                               "aggregate", "identity"), .Names = "AREA"))                                                                                                                                                                                                                                                                                                                        "aggregate", "identity"), .Names = "AREA")
-
-    tester <- lapply(unique(test$FPA_ID),
-                     FUN = st_multiring,
-                     data = test,
-                     dist = c(1000,2000)
-                     )
-
-    st_multiring <- function(ids, data, dist) {
-      lstbuffers <- list()
-
-      for (i in seq(dist)){
-
-        df <- subset(data, data$FPA_ID == ids) %>%
-          dplyr::select()
-
-        #first buffer
-        if (i == 1) {
-          lstbuffers[[i]] <- st_buffer(df, dist[i])
-
-        } else {
-          #next buffers as rings around the previous
-          lstbuffers[[i]] <- st_difference(st_buffer(df, dist[i]),
-                                           st_buffer(df, dist[i - 1]))
-        }
-        lstbuffers[[i]]$radius <- dist[i] #add the radius
-        lstbuffers[[i]]$FPA_ID <- ids[i] #add the radius
-
-        }
-    }
+    fpa_buffer <- df %>%
+      mutate(ring = st_buffer(geometry, 1000)) %>%
+      group_by(FPA_ID) %>%
+      mutate(buffer_distance = 1000,
+             geometry = st_difference(ring, geometry)) %>%
+      ungroup()
+    df
+  }
 
 
-    buffers <- do.call(rbind, lstbuffers)
+  sfInit(parallel = TRUE, cpus = parallel::detectCores())
+  sfExport(list = c('test'))
+  #sfSource('src/functions/helper_functions.R')
+
+  tester <- sfLapply(unique(test$FPA_ID),
+                 fun = st_multibuffer,
+                 data = test)
+  sfStop()
+
+
+
+  fpa_1k <- test %>%
+    mutate(ring = st_buffer(geometry, 1000)) %>%
+    group_by(FPA_ID) %>%
+    mutate(buffer_distance = 1000,
+           geometry = st_difference(ring, geometry)) %>%
+    ungroup()
+  st_write(fpa_1k, file.path(fpa_out, 'fpa_buffer_1k.gpkg'),
+           driver = 'GPKG', delete_layer = TRUE)
+
+  fpa_2k <- fpa_1k %>%
+    mutate(
+      ring = st_buffer(geom, 1000)
+    ) %>%
+    group_by(FPA_ID) %>%
+    mutate(buffer_distance = 2000,
+           geom = st_difference(ring, geom)) %>%
+    ungroup()
+  st_write(fpa_2k, file.path(fpa_out, 'fpa_buffer_2k.gpkg'),
+           driver = 'GPKG', delete_layer = TRUE)
+
+  fpa_3k <- fpa_2k %>%
+    mutate(
+      ring = st_buffer(geom, 1000)
+    ) %>%
+    group_by(FPA_ID) %>%
+    mutate(buffer_distance = 3000,
+           geom = st_difference(ring, geom)) %>%
+    ungroup()
+  st_write(fpa_3k, file.path(fpa_out, 'fpa_buffer_3k.gpkg'),
+           driver = 'GPKG', delete_layer = TRUE)
+
+
+  fpa_4k <- fpa_3k %>%
+    mutate(
+      ring = st_buffer(geom, 1000)
+    ) %>%
+    group_by(FPA_ID) %>%
+    mutate(buffer_distance = 4000,
+           geom = st_difference(ring, geom)) %>%
+    ungroup()
+  st_write(fpa_4k, file.path(fpa_out, 'fpa_buffer_4k.gpkg'),
+           driver = 'GPKG', delete_layer = TRUE)
+
+  fpa_5k <- fpa_4k %>%
+    mutate(
+      ring = st_buffer(geom, 1000)
+    ) %>%
+    group_by(FPA_ID) %>%
+    mutate(buffer_distance = 5000,
+           geom = st_difference(ring, geom)) %>%
+    ungroup()
+  st_write(fpa_5k, file.path(fpa_out, 'fpa_buffer_5k.gpkg'),
+           driver = 'GPKG', delete_layer = TRUE)
+
+  fpa_10k <- fpa_5k %>%
+    mutate(
+      ring = st_buffer(geom, 5000)
+    ) %>%
+    group_by(FPA_ID) %>%
+    mutate(buffer_distance = 10000,
+           geom = st_difference(ring, geom)) %>%
+    ungroup()
+  st_write(fpa_10k, file.path(fpa_out, 'fpa_buffer_10k.gpkg'),
+           driver = 'GPKG', delete_layer = TRUE)
+
+  system(paste0("aws s3 sync ", prefix, " ", s3_base))
 
   }
-}
 
 # Import the FBUY data
 if (!exists('fbuy_extractions')) {
