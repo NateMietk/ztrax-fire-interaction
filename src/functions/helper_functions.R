@@ -34,9 +34,12 @@ extract_one <- function(filename, shapefile_extractor,
 
     out_name <- paste0(varname, year)
     out_name <- gsub('.tif', '.csv', out_name)
+    out_name
 
     } else {
       out_name <- gsub('.tif', '.csv', filename)
+      out_name
+
     }
 
   if (!file.exists(out_name)) {
