@@ -19,8 +19,8 @@ if (!file.exists(file.path(anthro_out, 'building_counts', 'building_counts_all',
 } else {
 
   bu_list <- list.files(file.path(anthro_out, 'building_counts', 'building_counts_all'),
-                         pattern = 'masked',
-                         full.names = TRUE)
+                        pattern = glob2rx('*masked*tif'),
+                        full.names = TRUE)
   bu <- do.call(brick, lapply(bu_list, raster))
 }
 
@@ -28,17 +28,28 @@ if (!file.exists(file.path(anthro_out, 'building_counts', 'building_counts_all',
 if (!exists('usa_bu')) {
   if (!file.exists(file.path(anthro_out, 'building_counts', 'building_counts_all', 'usa_bu.rds'))) {
 
-    library(snow)
-    beginCluster(n = cores)
-    usa_bu <- raster::extract(bu, usa_shp, na.rm = TRUE, stat = 'sum', df = TRUE)
-    endCluster()
+    sfInit(parallel = TRUE, cpus = parallel::detectCores())
+    sfExport(list = c('usa_shp'))
+    sfSource('src/functions/helper_functions.R')
 
-    usa_bu <- usa_bu %>%
+    states_bu <- sfLapply(bu_list, fun = extract_one,
+                           use_varname = TRUE, varname = 'bu_state_',
+                           shapefile_extractor = usa_shp,
+                           prefix = prefix, s3_base = s3_base)
+
+    sfStop()
+
+    state_bu_df <- states_bu %>%
+      bind_cols %>%
+      as_tibble %>%
+      mutate(index = ID) %>%
+      dplyr::select(-starts_with("ID")) %>%
+      rename(ID = index) %>%
       group_by(ID) %>%
       summarise_all(funs(sum), na.rm = TRUE) %>%
-      mutate(fpa_id = data.frame(usa_shp)$stusps)
+      mutate(state_id = data.frame(usa_shp)$stusps)
 
-    write_rds(usa_bu, file.path(anthro_out, 'building_counts', 'building_counts_all', 'usa_bu.rds'))
+    write_rds(state_bu_df, file.path(anthro_out, 'building_counts', 'building_counts_all', 'usa_bu.rds'))
     system(paste0("aws s3 sync ", prefix, " ", s3_base))
 
   }
@@ -54,22 +65,72 @@ if (!exists('region_bu')) {
       group_by(region) %>%
       summarise()
 
-    library(snow)
-    beginCluster(n = cores)
-    regions_bu <- raster::extract(bu, regions, na.rm = TRUE, stat = 'sum', df = TRUE)
-    endCluster()
+    sfInit(parallel = TRUE, cpus = parallel::detectCores())
+    sfExport(list = c('regions'))
+    sfSource('src/functions/helper_functions.R')
 
-    regions_bu <- regions_bu %>%
+    regions_bu <- sfLapply(bu_list, fun = extract_one,
+                            use_varname = TRUE, varname = 'bu_regional_',
+                            shapefile_extractor = regions,
+                            prefix = prefix, s3_base = s3_base)
+
+    sfStop()
+
+    regions_bu_df <- regions_bu %>%
+      bind_cols %>%
+      as_tibble %>%
+      mutate(index = ID) %>%
+      dplyr::select(-starts_with("ID")) %>%
+      rename(ID = index) %>%
       group_by(ID) %>%
       summarise_all(funs(sum), na.rm = TRUE) %>%
-      mutate(fpa_id = data.frame(ecoregl1)$region)
+      mutate(region_id = data.frame(regions)$region)
 
-    write_rds(regions_bu, file.path(anthro_out, 'building_counts', 'building_counts_all', 'region_bu.rds'))
+
+    write_rds(regions_bu_df, file.path(anthro_out, 'building_counts', 'building_counts_all', 'region_bu.rds'))
     system(paste0("aws s3 sync ", prefix, " ", s3_base))
 
   }
 } else {
   usa_bu <- read_rds(file.path(anthro_out, 'building_counts', 'building_counts_all', 'usa_bu.rds'))
+}
+
+# What are the ecoreg level built-up intensity per 5 year incriments
+if (!exists('ecoreg_bu')) {
+  if (!file.exists(file.path(anthro_out, 'building_counts', 'building_counts_all', 'ecoregion_bu.rds'))) {
+
+    ecoregions <- ecoreg_plain %>%
+      group_by(us_l3name) %>%
+      summarise()
+
+    sfInit(parallel = TRUE, cpus = parallel::detectCores())
+    sfExport(list = c('ecoregions'))
+    sfSource('src/functions/helper_functions.R')
+
+    ecoregions_bu <- sfLapply(bu_list, fun = extract_one,
+                               use_varname = TRUE, varname = 'bu_ecoregion_',
+                               shapefile_extractor = ecoregions,
+                               prefix = prefix, s3_base = s3_base)
+
+    sfStop()
+
+    ecoregions_bu_df <- ecoregions_bu %>%
+      bind_cols %>%
+      as_tibble %>%
+      mutate(index = ID) %>%
+      dplyr::select(-starts_with("ID")) %>%
+      dplyr::select(-starts_with("X")) %>%
+      rename(ID = index) %>%
+      group_by(ID) %>%
+      summarise_all(funs(sum), na.rm = TRUE) %>%
+      mutate(ecoregion_id = data.frame(ecoregions)$us_l3name)
+
+    write_rds(ecoregions_bu_df, file.path(anthro_out, 'building_counts', 'building_counts_all', 'ecoregion_bu.rds'))
+    system(paste0("aws s3 sync ", prefix, " ", s3_base))
+
+  }
+} else {
+  ecoregions_bu <- read_rds(file.path(anthro_out, 'building_counts', 'building_counts_all', 'ecoregion_bu.rds'))
 }
 
 # setup parallel environment
