@@ -198,86 +198,96 @@ if (!exists('fpa')) {
     st_cast("POLYGON")
 }
 
-st_multibuffer <- function (ids, data, varname) {
+st_multibuffer <- function (ids, data) {
   require(sf)
   require(tidyverse)
 
-  if (!file.exists(file.path(fpa_out, paste0(varname, '.gpkg')))) {
+  df <- subset(data, data$FPA_ID == ids) %>%
+    dplyr::select(FPA_ID)
 
-    df <- subset(data, data$FPA_ID == ids) %>%
-      dplyr::select(FPA_ID)
+  fpa_buffer <- df %>%
+    mutate(ring = st_buffer(geometry, 1000)) %>%
+    group_by(FPA_ID) %>%
+    mutate(buffer_distance = 1000,
+           geometry = st_difference(ring, geometry)) %>%
+    ungroup()
 
-    fpa_buffer <- df %>%
-      mutate(ring = st_buffer(geometry, 1000)) %>%
-      group_by(FPA_ID) %>%
-      mutate(buffer_distance = 1000,
-             geometry = st_difference(ring, geometry)) %>%
-      ungroup()
-    st_write(fpa_buffer, file.path(fpa_out, paste0(varname, '.gpkg')),
-             driver = 'GPKG')
-    system(paste0("aws s3 sync ", prefix, " ", s3_base))
+  fpa_buffer
 
-    fpa_buffer
+}
 
-  } else {
-    fpa_buffer <- st_read(file.path(fpa_out, paste0(varname, '.gpkg')))
-    fpa_buffer
-    }
-  }
+if (!file.exists(file.path(fpa_out, 'fpa_buffer_1k.gpkg'))) {
+  sfInit(parallel = TRUE, cpus = parallel::detectCores()/4)
+  sfExport(list = c('fpa'))
 
-sfInit(parallel = TRUE, cpus = parallel::detectCores())
-sfExport(list = c('fpa'))
+  fpa_1k <- sfLapply(unique(fpa$FPA_ID),
+                 fun = st_multibuffer,
+                 data = fpa)
+  sfStop()
+  test <- do.call(rbind, fpa_1k)
 
-fpa_1k <- sfLapply(unique(fpa$FPA_ID),
-               fun = st_multibuffer,
-               data = fpa,
-               varname = 'fpa_buffer_1k')
-sfStop()
+  st_write(mtbs_fire, file.path(fpa_out, "fpa_buffer_1k.gpkg"),
+           driver = "GPKG", delete_layer = TRUE)
 
-sfInit(parallel = TRUE, cpus = parallel::detectCores())
-sfExport(list = c('fpa_1k'))
+  system(paste0("aws s3 sync ", prefix, " ", s3_base))
 
-fpa_2k <- sfLapply(unique(fpa_1k$FPA_ID),
-                   fun = st_multibuffer,
-                   data = fpa_1k,
-                   varname = 'fpa_buffer_2k')
-sfStop()
+} else {
+  fpa_1k <- st_read(file.path(fpa_out, "fpa_buffer_1k.gpkg"))
+}
+  rm(fpa)
 
-sfInit(parallel = TRUE, cpus = parallel::detectCores())
-sfExport(list = c('fpa_2k'))
+  sfInit(parallel = TRUE, cpus = parallel::detectCores())
+  sfExport(list = c('fpa_1k'))
 
-fpa_3k <- sfLapply(unique(fpa_2k$FPA_ID),
-                   fun = st_multibuffer,
-                   data = fpa_2k,
-                   varname = 'fpa_buffer_3k')
-sfStop()
+  fpa_2k <- sfLapply(unique(fpa_1k$FPA_ID),
+                     fun = st_multibuffer,
+                     data = fpa_1k,
+                     varname = 'fpa_buffer_2k')
+  sfStop()
+  rm(fpa_1k)
 
-sfInit(parallel = TRUE, cpus = parallel::detectCores())
-sfExport(list = c('fpa_3k'))
+  sfInit(parallel = TRUE, cpus = parallel::detectCores())
+  sfExport(list = c('fpa_2k'))
 
-fpa_4k <- sfLapply(unique(fpa_3k$FPA_ID),
-                   fun = st_multibuffer,
-                   data = fpa_3k,
-                   varname = 'fpa_buffer_4k')
-sfStop()
+  fpa_3k <- sfLapply(unique(fpa_2k$FPA_ID),
+                     fun = st_multibuffer,
+                     data = fpa_2k,
+                     varname = 'fpa_buffer_3k')
+  sfStop()
+  rm(fpa_2k)
 
-sfInit(parallel = TRUE, cpus = parallel::detectCores())
-sfExport(list = c('fpa_4k'))
+  sfInit(parallel = TRUE, cpus = parallel::detectCores())
+  sfExport(list = c('fpa_3k'))
 
-fpa_5k <- sfLapply(unique(fpa_4k$FPA_ID),
-                   fun = st_multibuffer,
-                   data = fpa_4k,
-                   varname = 'fpa_buffer_5k')
-sfStop()
+  fpa_4k <- sfLapply(unique(fpa_3k$FPA_ID),
+                     fun = st_multibuffer,
+                     data = fpa_3k,
+                     varname = 'fpa_buffer_4k')
+  sfStop()
+  rm(fpa_3k)
 
-sfInit(parallel = TRUE, cpus = parallel::detectCores())
-sfExport(list = c('fpa_5k'))
+  sfInit(parallel = TRUE, cpus = parallel::detectCores())
+  sfExport(list = c('fpa_4k'))
 
-fpa_10k <- sfLapply(unique(fpa_5k$FPA_ID),
-                   fun = st_multibuffer,
-                   data = fpa_5k,
-                   varname = 'fpa_buffer_10k')
-sfStop()
+  fpa_5k <- sfLapply(unique(fpa_4k$FPA_ID),
+                     fun = st_multibuffer,
+                     data = fpa_4k,
+                     varname = 'fpa_buffer_5k')
+  sfStop()
+  rm(fpa_4k)
+
+  sfInit(parallel = TRUE, cpus = parallel::detectCores())
+  sfExport(list = c('fpa_5k'))
+
+  fpa_10k <- sfLapply(unique(fpa_5k$FPA_ID),
+                     fun = st_multibuffer,
+                     data = fpa_5k,
+                     varname = 'fpa_buffer_10k')
+  sfStop()
+  rm(fpa_5k)
+  rm(fpa_10k)
+
+}
 
 # Import the FBUY data
 if (!exists('fbuy_extractions')) {

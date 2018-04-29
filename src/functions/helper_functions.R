@@ -26,13 +26,15 @@ extract_one <- function(filename, shapefile_extractor,
   require(raster)
 
   if (use_varname == TRUE) {
+
     file_split <- filename %>%
       basename %>%
       strsplit(split = "_") %>%
       unlist
     year <- file_split[max(length(file_split))]
+    dir_name <- dirname(filename)
 
-    out_name <- paste0(varname, year)
+    out_name <- paste0(dir_name, '/', varname, year)
     out_name <- gsub('.tif', '.csv', out_name)
     out_name
 

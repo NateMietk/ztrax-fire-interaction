@@ -23,7 +23,6 @@ if (!file.exists(file.path(anthro_out, 'built_up_intensity', 'BUI', 'bui_masked_
   bui_list <- list.files(file.path(anthro_out, 'built_up_intensity', 'BUI'),
                          pattern = glob2rx('*masked*tif'),
                          full.names = TRUE)
-  bui <- do.call(brick, lapply(bui_list, raster))
 }
 
 # What are the state and CONUS level built-up intensity per 5 year incriments

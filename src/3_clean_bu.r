@@ -21,7 +21,6 @@ if (!file.exists(file.path(anthro_out, 'building_counts', 'building_counts_all',
   bu_list <- list.files(file.path(anthro_out, 'building_counts', 'building_counts_all'),
                         pattern = glob2rx('*masked*tif'),
                         full.names = TRUE)
-  bu <- do.call(brick, lapply(bu_list, raster))
 }
 
 # What are the state and CONUS level building counts per 5 year incriments
