@@ -13,6 +13,24 @@ load_data <- function(url, dir, layer, outname) {
   name
 }
 
+st_multibuffer <- function (ids, data) {
+  require(sf)
+  require(tidyverse)
+
+  df <- subset(data, data$FPA_ID == ids) %>%
+    dplyr::select(FPA_ID)
+
+  fpa_buffer <- df %>%
+    mutate(ring = st_buffer(geometry, 1000)) %>%
+    group_by(FPA_ID) %>%
+    mutate(buffer_distance = 1000,
+           geometry = st_difference(ring, geometry)) %>%
+    ungroup()
+
+  fpa_buffer
+
+}
+
 extract_one <- function(filename, shapefile_extractor,
                         use_varname = TRUE, varname,
                         prefix = prefix, s3_base = s3_base) {
