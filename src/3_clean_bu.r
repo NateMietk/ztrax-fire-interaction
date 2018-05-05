@@ -133,10 +133,11 @@ if (!exists('ecoreg_bu')) {
 }
 
 # setup parallel environment
-sfInit(parallel = TRUE, cpus = parallel::detectCores())
+sfInit(parallel = TRUE, cpus = 10)
 sfExport(list = c("fpa"))
 
 extractions_bu <- sfLapply(as.list(bu_list),
-                            fun = extract_one,
-                            shapefile_extractor = fpa)
+                           use_varname = TRUE, varname = 'bu_masked_fpa_',
+                           fun = extract_one,
+                           shapefile_extractor = fpa)
 sfStop()
