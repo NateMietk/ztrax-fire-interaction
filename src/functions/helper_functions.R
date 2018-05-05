@@ -63,8 +63,8 @@ extract_one <- function(filename, shapefile_extractor,
     }
 
   if (!file.exists(out_name)) {
-    res <- raster::extract(raster::raster(filename), shapefile_extractor,
-                           na.rm = TRUE, stat = 'sum', df = TRUE)
+    res <- velox::velox(raster::raster(filename))$extract(shapefile_extractor,
+      fun = function(x) sum(x, na.rm = TRUE))
     write.csv(res, file = out_name)
 
     system(paste0("aws s3 sync ", prefix, " ", s3_base))
