@@ -101,7 +101,7 @@ if (!exists('ecoreg')) {
     system(paste0("aws s3 sync ", prefix, " ", s3_base))
 
   } else {
-    ecoreg_plain <- st_read( file.path(ecoreg_plain, 'us_eco_plain.gpkg'))
+    ecoreg_plain <- st_read( file.path(ecoregion_out, 'us_eco_plain.gpkg'))
     ecoreg <- sf::st_read(file.path(ecoregion_out, 'us_eco_l3.gpkg'))
   }
 }
