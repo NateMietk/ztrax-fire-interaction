@@ -1,8 +1,8 @@
 # Import the buidling units data
 if (!file.exists(file.path(anthro_out, 'building_counts', 'building_counts_all', 'bu_masked_1990.tif'))) {
   bu_list <- list.files(file.path(anthro_out, 'building_counts', 'building_counts_all'),
-                         pattern = 'temp_slice',
-                         full.names = TRUE)
+                        pattern = 'temp_slice',
+                        full.names = TRUE)
   bu <- do.call(brick, lapply(bu_list, raster))
   bu_masked <- mask(bu, fbuy_raster)
 
@@ -21,123 +21,118 @@ if (!file.exists(file.path(anthro_out, 'building_counts', 'building_counts_all',
   bu_list <- list.files(file.path(anthro_out, 'building_counts', 'building_counts_all'),
                         pattern = glob2rx('*masked*tif'),
                         full.names = TRUE)
+  bu_stack <- velox(stack(bu_list))
 }
 
-# What are the state and CONUS level building counts per 5 year incriments
-if (!exists('usa_bu')) {
-  if (!file.exists(file.path(anthro_out, 'building_counts', 'building_counts_all', 'usa_bu.rds'))) {
+ecoregions <- ecoreg_plain %>%
+  group_by(us_l3name) %>%
+  summarise() %>%
+  st_cast('POLYGON')
 
-    sfInit(parallel = TRUE, cpus = parallel::detectCores())
-    sfExport(list = c('usa_shp'))
-    sfSource('src/functions/helper_functions.R')
+# What are the ecoreg level built-up intensity per 5 year incriments
+if (!exists('sum_extractions_bu')) {
+  if (!file.exists(file.path(anthro_out, 'building_counts', 'building_counts_all', 'sum_ecoregion_bu.rds'))) {
 
-    states_bu <- sfLapply(bu_list, fun = extract_one,
-                           use_varname = TRUE, varname = 'bu_state_',
-                           shapefile_extractor = usa_shp,
-                           prefix = prefix, s3_base = s3_base)
+    sum_extractions_bu <- bu_stack$extract(sp = ecoregions, fun = function(x) {sum(x, na.rm=TRUE)}) %>%
+      as_tibble() %>%
+      mutate(ecoregion_id = data.frame(ecoregions_mini)$us_l3name,
+             sum_bu_1990 = V1,
+             sum_bu_1995 = V2,
+             sum_bu_2000 = V3,
+             sum_bu_2005 = V4,
+             sum_bu_2010 = V5,
+             sum_bu_2015 = V6) %>%
+      dplyr::select(-starts_with('V'))
 
-    sfStop()
-
-    state_bu_df <- states_bu %>%
-      bind_cols %>%
-      as_tibble %>%
-      mutate(index = ID) %>%
-      dplyr::select(-starts_with("ID")) %>%
-      rename(ID = index) %>%
-      group_by(ID) %>%
-      summarise_all(funs(sum), na.rm = TRUE) %>%
-      mutate(state_id = data.frame(usa_shp)$stusps)
-
-    write_rds(state_bu_df, file.path(anthro_out, 'building_counts', 'building_counts_all', 'usa_bu.rds'))
+    write_rds(sum_extractions_bu, file.path(anthro_out, 'building_counts', 'building_counts_all', 'sum_ecoregion_bu.rds'))
     system(paste0("aws s3 sync ", prefix, " ", s3_base))
-
   }
 } else {
-  usa_bu <- read_rds(file.path(anthro_out, 'building_counts', 'building_counts_all', 'usa_bu.rds'))
-}
-
-# What are the regional (west, central, east) level building counts per 5 year incriments
-if (!exists('region_bu')) {
-  if (!file.exists(file.path(anthro_out, 'building_counts', 'building_counts_all', 'region_bu.rds'))) {
-
-    regions <- ecoregl1 %>%
-      group_by(region) %>%
-      summarise()
-
-    sfInit(parallel = TRUE, cpus = parallel::detectCores())
-    sfExport(list = c('regions'))
-    sfSource('src/functions/helper_functions.R')
-
-    regions_bu <- sfLapply(bu_list, fun = extract_one,
-                            use_varname = TRUE, varname = 'bu_regional_',
-                            shapefile_extractor = regions,
-                            prefix = prefix, s3_base = s3_base)
-
-    sfStop()
-
-    regions_bu_df <- regions_bu %>%
-      bind_cols %>%
-      as_tibble %>%
-      mutate(index = ID) %>%
-      dplyr::select(-starts_with("ID")) %>%
-      rename(ID = index) %>%
-      group_by(ID) %>%
-      summarise_all(funs(sum), na.rm = TRUE) %>%
-      mutate(region_id = data.frame(regions)$region)
-
-
-    write_rds(regions_bu_df, file.path(anthro_out, 'building_counts', 'building_counts_all', 'region_bu.rds'))
-    system(paste0("aws s3 sync ", prefix, " ", s3_base))
-
-  }
-} else {
-  usa_bu <- read_rds(file.path(anthro_out, 'building_counts', 'building_counts_all', 'usa_bu.rds'))
+  sum_ecoregions_bu <- read_rds(file.path(anthro_out, 'building_counts', 'building_counts_all', 'sum_ecoregion_bu.rds'))
 }
 
 # What are the ecoreg level built-up intensity per 5 year incriments
-if (!exists('ecoreg_bu')) {
-  if (!file.exists(file.path(anthro_out, 'building_counts', 'building_counts_all', 'ecoregion_bu.rds'))) {
+if (!exists('mean_extractions_bu')) {
+  if (!file.exists(file.path(anthro_out, 'building_counts', 'building_counts_all', 'mean_ecoregion_bu.rds'))) {
 
-    ecoregions <- ecoreg_plain %>%
-      group_by(us_l3name) %>%
-      summarise()
+    bu_stack <- velox(stack(bu_list))
+    mean_extractions_bu <- bu_stack$extract(sp = ecoregions, fun = function(x) {mean(x, na.rm=TRUE)}) %>%
+      as_tibble() %>%
+      mutate(ecoregion_id = data.frame(ecoregions)$us_l3name,
+             mean_bu_1990 = V1,
+             mean_bu_1995 = V2,
+             mean_bu_2000 = V3,
+             mean_bu_2005 = V4,
+             mean_bu_2010 = V5,
+             mean_bu_2015 = V6) %>%
+      dplyr::select(-starts_with('V'))
 
-    sfInit(parallel = TRUE, cpus = parallel::detectCores())
-    sfExport(list = c('ecoregions'))
-    sfSource('src/functions/helper_functions.R')
-
-    ecoregions_bu <- sfLapply(bu_list, fun = extract_one,
-                               use_varname = TRUE, varname = 'bu_ecoregion_',
-                               shapefile_extractor = ecoregions,
-                               prefix = prefix, s3_base = s3_base)
-
-    sfStop()
-
-    ecoregions_bu_df <- ecoregions_bu %>%
-      bind_cols %>%
-      as_tibble %>%
-      mutate(index = ID) %>%
-      dplyr::select(-starts_with("ID")) %>%
-      dplyr::select(-starts_with("X")) %>%
-      rename(ID = index) %>%
-      group_by(ID) %>%
-      summarise_all(funs(sum), na.rm = TRUE) %>%
-      mutate(ecoregion_id = data.frame(ecoregions)$us_l3name)
-
-    write_rds(ecoregions_bu_df, file.path(anthro_out, 'building_counts', 'building_counts_all', 'ecoregion_bu.rds'))
+    write_rds(mean_extractions_bu, file.path(anthro_out, 'building_counts', 'building_counts_all', 'mean_ecoregion_bu.rds'))
     system(paste0("aws s3 sync ", prefix, " ", s3_base))
-
   }
 } else {
-  ecoregions_bu <- read_rds(file.path(anthro_out, 'building_counts', 'building_counts_all', 'ecoregion_bu.rds'))
+  mean_ecoregions_bu <- read_rds(file.path(anthro_out, 'building_counts', 'building_counts_all', 'mean_ecoregion_bu.rds'))
+}
+
+if (!exists('median_extractions_bu')) {
+  if (!file.exists(file.path(anthro_out, 'building_counts', 'building_counts_all', 'median_ecoregion_bu.rds'))) {
+
+    median_extractions_bu <- bu_stack$extract(sp = ecoregions, fun = function(x){median(x, na.rm=TRUE)}) %>%
+      as_tibble() %>%
+      mutate(ecoregion_id = data.frame(ecoregions)$us_l3name,
+             median_bu_1990 = V1,
+             median_bu_1995 = V2,
+             median_bu_2000 = V3,
+             median_bu_2005 = V4,
+             median_bu_2010 = V5,
+             median_bu_2015 = V6) %>%
+      dplyr::select(-starts_with('V'))
+
+    write_rds(median_extractions_bu, file.path(anthro_out, 'building_counts', 'building_counts_all', 'median_ecoregion_bu.rds'))
+    system(paste0("aws s3 sync ", prefix, " ", s3_base))
+  }
+} else {
+  median_ecoregions_bu <- read_rds(file.path(anthro_out, 'building_counts', 'building_counts_all', 'median_ecoregion_bu.rds'))
 }
 
 # setup parallel environment
-sfInit(parallel = TRUE, cpus = 10)
-sfExport(list = c("fpa"))
+sum_extractions_bu <- bu_stack$extract(sp = fpa, fun = function(x){sum(x, na.rm=TRUE)}) %>%
+  as_tibble() %>%
+  mutate(fpa_id = as.data.frame(fpa)$FPA_ID,
+         sum_bu_1990 = V1,
+         sum_bu_1995 = V2,
+         sum_bu_2000 = V3,
+         sum_bu_2005 = V4,
+         sum_bu_2010 = V5,
+         sum_bu_2015 = V6) %>%
+  dplyr::select(-starts_with('V'))
+write_rds(sum_extractions_bu, file.path(anthro_out, 'building_counts', 'building_counts_all', 'sum_fpa_perimeter_bu.rds'))
+system(paste0("aws s3 sync ", prefix, " ", s3_base))
 
-extractions_bu <- sfLapply(as.list(bu_list),
-                           use_varname = TRUE, varname = 'bu_masked_fpa_',
-                           fun = extract_one,
-                           shapefile_extractor = fpa)
-sfStop()
+# setup parallel environment
+mean_extractions_bu <- bu_stack$extract(sp = fpa, fun = function(x){mean(x, na.rm=TRUE)}) %>%
+  as_tibble() %>%
+  mutate(fpa_id = as.data.frame(fpa)$FPA_ID,
+         mean_bu_1990 = V1,
+         mean_bu_1995 = V2,
+         mean_bu_2000 = V3,
+         mean_bu_2005 = V4,
+         mean_bu_2010 = V5,
+         mean_bu_2015 = V6) %>%
+  dplyr::select(-starts_with('V'))
+write_rds(mean_extractions_bu, file.path(anthro_out, 'building_counts', 'building_counts_all', 'mean_fpa_perimeter_bu.rds'))
+system(paste0("aws s3 sync ", prefix, " ", s3_base))
+
+# setup parallel environment
+median_extractions_bu <- bu_stack$extract(sp = fpa, fun = function(x){median(x, na.rm=TRUE)}) %>%
+  as_tibble() %>%
+  mutate(fpa_id = as.data.frame(fpa)$FPA_ID,
+         median_bu_1990 = V1,
+         median_bu_1995 = V2,
+         median_bu_2000 = V3,
+         median_bu_2005 = V4,
+         median_bu_2010 = V5,
+         median_bu_2015 = V6) %>%
+  dplyr::select(-starts_with('V'))
+write_rds(median_extractions_bu, file.path(anthro_out, 'building_counts', 'building_counts_all', 'median_fpa_perimeter_bu.rds'))
+system(paste0("aws s3 sync ", prefix, " ", s3_base))
