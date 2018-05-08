@@ -1,5 +1,5 @@
 # Libraries ---------------------------------------------------------------
-x <- c("tidyverse", "magrittr", "sf", "gridExtra", "rgdal", "raster", "rgeos", "lwgeom", 'snowfall',
+x <- c("tidyverse", "magrittr", "sf", "gridExtra", "rgdal", "raster", "rgeos", "lwgeom", 'snowfall', 'velox',
        "assertthat", "purrr", "httr", "rvest", "lubridate", "doParallel", "RColorBrewer", "ggthemes")
 lapply(x, library, character.only = TRUE, verbose = FALSE)
 
