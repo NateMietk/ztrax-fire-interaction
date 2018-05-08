@@ -192,13 +192,6 @@ if (!exists('mtbs_fire')) {
   }
 }
 
-if (!exists('fpa')) {
-  fpa <- st_read(file.path(fpa_out, 'fpa_mtbs_bae.gpkg')) %>%
-    dplyr::select(FPA_ID)
-}
-
-
-
 
 fbuy_extractions_df <- fbuy_extractions %>%
   bind_cols %>%
