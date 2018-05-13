@@ -3,7 +3,8 @@ x <- c("tidyverse", "magrittr", "sf", "gridExtra", "rgdal", "raster", "rgeos", "
        "assertthat", "purrr", "httr", "rvest", "lubridate", "doParallel", "RColorBrewer", "ggthemes")
 lapply(x, library, character.only = TRUE, verbose = FALSE)
 
-proj_ea <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +datum=NAD83 +units=m +no_defs +ellps=GRS80 +towgs84=0,0,0"
+proj_ea <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"
+
 source('src/functions/helper_functions.R')
 
 cores <- detectCores()
