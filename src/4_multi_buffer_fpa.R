@@ -1,10 +1,9 @@
 
-if (!file.exists(file.path(fpa_out, 'fpa_buffer_1k.gpkg'))) {
-  if (!exists('fpa')) {
-    fpa <- st_read(file.path(fpa_out, 'fpa_mtbs_bae.gpkg')) %>%
-      dplyr::select(FPA_ID)
-  }
+if (!exists('fpa')) {
+  fpa <- st_read(file.path(fpa_out, 'fpa_mtbs_bae.gpkg')) %>%
+    dplyr::select(FPA_ID)
 }
+
 
 if (!file.exists(file.path(fpa_out, 'fpa_buffer_1k.gpkg'))) {
 
