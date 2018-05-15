@@ -79,11 +79,14 @@ if (!exists('sum_fpa_bu')) {
   if (!file.exists(file.path(anthro_out, 'building_counts', 'building_counts_all', 'summary_fpa_bu.rds'))) {
 
     sum_fpa_bu <-
-      raster::extract(bu_stack,
-                      fpa,
-                      na.rm = TRUE,
-                      stat = 'sum',
-                      df = TRUE)
+      lapply(
+        as.list(bu_list),
+        FUN = extract_one,
+        shapefile_extractor = fpa,
+        funny = sum,
+        use_varname = TRUE,
+        varname = 'fpa_sum_'
+      )
 
     sum_fpa_bu_count <- sum_fpa_bu %>%
       bind_cols %>%
