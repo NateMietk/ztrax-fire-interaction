@@ -61,17 +61,6 @@ extract_one <- function(filename, shapefile_extractor,
       out_name
 
     }
-
-  if (!file.exists(out_name)) {
-    res <- velox::velox(raster::raster(filename))$extract(shapefile_extractor,
-      fun = function(x) sum(x, na.rm = TRUE))
-    write.csv(res, file = out_name)
-
-    system(paste0("aws s3 sync ", prefix, " ", s3_base))
-  } else {
-    res <- read.csv(out_name)
-    }
-  res
   }
 
 classify_fire_size <-  function(x) {
