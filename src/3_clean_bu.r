@@ -22,6 +22,7 @@ if (!file.exists(file.path(anthro_out, 'building_counts', 'building_counts_all',
                         pattern = glob2rx('*masked*tif'),
                         full.names = TRUE)
   bu_stack <- stack(bu_list)
+  bu_velox <- velox(bu_stack)
 }
 
 # Housing units per ecoregion
@@ -78,41 +79,19 @@ if (!exists('sum_extractions_bu')) {
 if (!exists('sum_fpa_bu')) {
   if (!file.exists(file.path(anthro_out, 'building_counts', 'building_counts_all', 'summary_fpa_bu.rds'))) {
 
-    library(snow)
-    beginCluster(n = 2)
-
-    sum_fpa_bu <-
-      raster::extract(bu_stack,
-                      fpa,
-                      na.rm = TRUE,
-                      stat = 'sum',
-                      df = TRUE)
-    endCluster()
-
-    sum_fpa_bu_count <- sum_fpa_bu %>%
-      bind_cols %>%
-      as_tibble %>%
-      mutate(index = ID) %>%
-      dplyr::select(-starts_with("ID")) %>%
-      dplyr::select(-starts_with("X")) %>%
-      rename(ID = index) %>%
-      group_by(ID) %>%
-      dplyr::count()
-
-    sum_fpa_bu <- sum_fpa_bu %>%
-      bind_cols %>%
-      as_tibble %>%
-      mutate(index = ID) %>%
-      dplyr::select(-starts_with("ID")) %>%
-      dplyr::select(-starts_with("X")) %>%
-      rename(ID = index) %>%
-      group_by(ID) %>%
-      summarise_all(funs(sum), na.rm = TRUE) %>%
-      left_join(., sum_fpa_bu_count, by = 'ID') %>%
-      mutate(FPA_ID = data.frame(fpa)$FPA_ID)
-
+    sum_fpa_bu <- bu_velox$extract(sp = fpa, fun = function(x) sum(x, na.rm=TRUE), small = TRUE, df = TRUE) %>%
+      as_tibble() %>%
+      mutate(fpa_id = as.data.frame(fpa_slim)$FPA_ID,
+             sum_bu_1990 = V1,
+             sum_bu_1995 = V2,
+             sum_bu_2000 = V3,
+             sum_bu_2005 = V4,
+             sum_bu_2010 = V5,
+             sum_bu_2015 = V6) %>%
+      dplyr::select(-starts_with('V'))
     write_rds(sum_fpa_bu, file.path(anthro_out, 'building_counts', 'building_counts_all', 'summary_fpa_bu.rds'))
     system(paste0("aws s3 sync ", prefix, " ", s3_base))
+
   }
 } else {
   sum_fpa_bu <- read_rds(file.path(anthro_out, 'building_counts', 'building_counts_all', 'summary_fpa_bu.rds'))
