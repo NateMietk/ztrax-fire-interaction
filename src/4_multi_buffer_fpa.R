@@ -5,8 +5,11 @@ if (!exists('fpa')) {
 
 
 if (!file.exists(file.path(fpa_out, 'fpa_buffer_1k.gpkg'))) {
-  fpa_slim <- fpa %>% slice (1)
-  fpa_1k <- st_buffer(fpa, dist = 1000)
+
+  fpa_1k <- fpa %>%
+    dplyr::select(-FPA_ID) %>%
+    st_difference(st_buffer(., dist = 1000), .) %>%
+    mutate(FPA_ID = as.data.frame(fpa)$FPA_ID)
 
   st_write(fpa_1k, file.path(fpa_out, "fpa_buffer_1k.gpkg"),
            driver = "GPKG", delete_layer = TRUE)
