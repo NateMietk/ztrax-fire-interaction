@@ -1,12 +1,11 @@
 
 if (!exists('fpa')) {
-  fpa <- st_read(file.path(fpa_out, 'fpa_mtbs_bae.gpkg')) %>%
-    dplyr::select(FPA_ID)
+  fpa <- st_read(file.path(fpa_out, 'fpa_mtbs_bae.gpkg'))
 }
 
 
 if (!file.exists(file.path(fpa_out, 'fpa_buffer_1k.gpkg'))) {
-
+  fpa_slim <- fpa %>% slice (1)
   fpa_1k <- st_buffer(fpa, dist = 1000)
 
   st_write(fpa_1k, file.path(fpa_out, "fpa_buffer_1k.gpkg"),
