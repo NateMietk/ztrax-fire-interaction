@@ -35,14 +35,15 @@ if (!exists('ecoregl1')) {
                                                          "TROPICAL WET FORESTS",
                                                          "NORTHERN FORESTS"), "East",
                                         if_else(NA_L1NAME %in% c("NORTH AMERICAN DESERTS",
-                                                                 "SOUTHERN SEMIARID HIGHLANDS",
+                                                                 "SOUTHERN SEMI-ARID HIGHLANDS",
                                                                  "TEMPERATE SIERRAS",
                                                                  "MEDITERRANEAN CALIFORNIA",
                                                                  "NORTHWESTERN FORESTED MOUNTAINS",
                                                                  "MARINE WEST COAST FOREST"), "West", "Central")))) %>%
       setNames(tolower(names(.)))
 
-    st_write(ecoregl1, file.path(ecoregion_out, 'us_eco_l1.gpkg'), driver = 'GPKG')
+    st_write(ecoregl1, file.path(ecoregion_out, 'us_eco_l1.gpkg'),
+             driver = 'GPKG', delete_layer = TRUE)
 
     system(paste0("aws s3 sync ",
                   prefix, " ",
