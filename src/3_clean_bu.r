@@ -34,41 +34,19 @@ if (!exists('sum_extractions_bu')) {
       summarise() %>%
       st_cast('POLYGON')
 
-    library(snow)
-    beginCluster(n = 10)
-    sum_ecoregions_bu <-
-      raster::extract(bu_stack,
-                      ecoregions,
-                      na.rm = TRUE,
-                      stat = 'sum',
-                      df = TRUE)
-    endCluster()
-
-    sum_ecoregions_count <- sum_ecoregions_bu %>%
-      bind_cols %>%
-      as_tibble %>%
-      mutate(index = ID) %>%
-      dplyr::select(-starts_with("ID")) %>%
-      dplyr::select(-starts_with("X")) %>%
-      rename(ID = index) %>%
-      group_by(ID) %>%
-      dplyr::count()
-
-    sum_ecoregions_bu <- sum_ecoregions_bu %>%
-      bind_cols %>%
-      as_tibble %>%
-      mutate(index = ID) %>%
-      dplyr::select(-starts_with("ID")) %>%
-      dplyr::select(-starts_with("X")) %>%
-      rename(ID = index) %>%
-      group_by(ID) %>%
-      summarise_all(funs(sum), na.rm = TRUE) %>%
-      left_join(., sum_ecoregions_count, by = 'ID') %>%
-      mutate(ecoregion_id = data.frame(ecoregions)$us_l3name)
-
-    write_rds(sum_ecoregions_bu,
-              file.path(anthro_out, 'building_counts', 'building_counts_all', 'summary_ecoregion_bu.rds'))
+    sum_ecoregions_bu <- bu_velox$extract(sp = ecoregions, fun = function(x) sum(x, na.rm=TRUE), small = TRUE, df = TRUE) %>%
+      as_tibble() %>%
+      mutate(us_l3name = as.data.frame(ecoregions)$us_l3name,
+             sum_bu_1990 = X1,
+             sum_bu_1995 = X2,
+             sum_bu_2000 = X3,
+             sum_bu_2005 = X4,
+             sum_bu_2010 = X5,
+             sum_bu_2015 = X6) %>%
+      dplyr::select(-starts_with('X'))
+    write_rds(sum_ecoregions_bu, file.path(anthro_out, 'building_counts', 'building_counts_all', 'summary_ecoregion_bu.rds'))
     system(paste0("aws s3 sync ", prefix, " ", s3_base))
+
   }
 } else {
   sum_ecoregions_bu <-
@@ -81,14 +59,14 @@ if (!exists('sum_fpa_bu')) {
 
     sum_fpa_bu <- bu_velox$extract(sp = fpa, fun = function(x) sum(x, na.rm=TRUE), small = TRUE, df = TRUE) %>%
       as_tibble() %>%
-      mutate(fpa_id = as.data.frame(fpa_slim)$FPA_ID,
-             sum_bu_1990 = V1,
-             sum_bu_1995 = V2,
-             sum_bu_2000 = V3,
-             sum_bu_2005 = V4,
-             sum_bu_2010 = V5,
-             sum_bu_2015 = V6) %>%
-      dplyr::select(-starts_with('V'))
+      mutate(fpa_id = as.data.frame(fpa)$FPA_ID,
+             sum_bu_1990 = X1,
+             sum_bu_1995 = X2,
+             sum_bu_2000 = X3,
+             sum_bu_2005 = X4,
+             sum_bu_2010 = X5,
+             sum_bu_2015 = X6) %>%
+      dplyr::select(-starts_with('X'))
     write_rds(sum_fpa_bu, file.path(anthro_out, 'building_counts', 'building_counts_all', 'summary_fpa_bu.rds'))
     system(paste0("aws s3 sync ", prefix, " ", s3_base))
 
@@ -101,37 +79,16 @@ if (!exists('sum_fpa_bu')) {
 if (!exists('sum_fpa_1k_bu')) {
   if (!file.exists(file.path(anthro_out, 'building_counts', 'building_counts_all', 'summary_fpa_1k_bu.rds'))) {
 
-    # library(snow)
-    # beginCluster(n = 1)
-    sum_fpa_1k_bu <-
-      raster::extract(bu_stack,
-                      fpa_1k,
-                      na.rm = TRUE,
-                      stat = 'sum',
-                      df = TRUE)
-    # endCluster()
-
-    sum_fpa_1k_bu_count <- sum_fpa_1k_bu %>%
-      bind_cols %>%
-      as_tibble %>%
-      mutate(index = ID) %>%
-      dplyr::select(-starts_with("ID")) %>%
-      dplyr::select(-starts_with("X")) %>%
-      rename(ID = index) %>%
-      group_by(ID) %>%
-      dplyr::count()
-
-    sum_fpa_1k_bu <- sum_fpa_1k_bu %>%
-      bind_cols %>%
-      as_tibble %>%
-      mutate(index = ID) %>%
-      dplyr::select(-starts_with("ID")) %>%
-      dplyr::select(-starts_with("X")) %>%
-      rename(ID = index) %>%
-      group_by(ID) %>%
-      summarise_all(funs(sum), na.rm = TRUE) %>%
-      left_join(., sum_fpa_bu_count, by = 'ID') %>%
-      mutate(FPA_ID = data.frame(fpa)$FPA_ID)
+    sum_fpa_1k_bu <- bu_velox$extract(sp = fpa_1k, fun = function(x) sum(x, na.rm=TRUE), small = TRUE, df = TRUE) %>%
+      as_tibble() %>%
+      mutate(fpa_id = as.data.frame(fpa_1k)$FPA_ID,
+             sum_bu_1990 = X1,
+             sum_bu_1995 = X2,
+             sum_bu_2000 = X3,
+             sum_bu_2005 = X4,
+             sum_bu_2010 = X5,
+             sum_bu_2015 = X6) %>%
+      dplyr::select(-starts_with('X'))
 
     write_rds(sum_fpa_1k_bu, file.path(anthro_out, 'building_counts', 'building_counts_all', 'summary_fpa_1k_bu.rds'))
     system(paste0("aws s3 sync ", prefix, " ", s3_base))
