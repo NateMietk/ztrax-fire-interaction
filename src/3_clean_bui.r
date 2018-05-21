@@ -46,7 +46,7 @@ if (!exists('sum_extractions_bui')) {
              sum_bui_2010 = X5,
              sum_bui_2015 = X6) %>%
       dplyr::select(-starts_with('X'))
-    write_rds(sum_ecoregions_bu, file.path(anthro_out, 'built_up_intensity', 'BUI', 'summary_ecoregion_bui.rds'))
+    write_rds(sum_ecoregions_bui, file.path(anthro_out, 'built_up_intensity', 'BUI', 'summary_ecoregion_bui.rds'))
     system(paste0("aws s3 sync ", prefix, " ", s3_base))
 
   }
@@ -79,7 +79,7 @@ if (!exists('sum_fpa_bui')) {
 
 # Housing units per fpa_1k buffered point
 if (!exists('sum_fpa_1k_bui')) {
-  if (!file.exists(file.path(anthro_out, 'building_counts', 'building_counts_all', 'summary_fpa_1k_bui.rds'))) {
+  if (!file.exists(file.path(anthro_out, 'built_up_intensity', 'BUI', 'summary_fpa_1k_bui.rds'))) {
 
     sum_fpa_1k_bui <- bui_velox$extract(sp = fpa_1k, fun = function(x) sum(x, na.rm=TRUE), small = TRUE, df = TRUE) %>%
       as_tibble() %>%
@@ -92,9 +92,53 @@ if (!exists('sum_fpa_1k_bui')) {
              sum_bui_2015 = X6) %>%
       dplyr::select(-starts_with('X'))
 
-    write_rds(sum_fpa_1k_bui, file.path(anthro_out, 'building_counts', 'building_counts_all', 'summary_fpa_1k_bui.rds'))
+    write_rds(sum_fpa_1k_bui, file.path(anthro_out, 'built_up_intensity', 'BUI', 'summary_fpa_1k_bui.rds'))
     system(paste0("aws s3 sync ", prefix, " ", s3_base))
   }
 } else {
-  sum_fpa_1k_bui <- read_rds(file.path(anthro_out, 'building_counts', 'building_counts_all', 'summary_fpa_1k_bui.rds'))
+  sum_fpa_1k_bui <- read_rds(file.path(anthro_out, 'built_up_intensity', 'BUI', 'summary_fpa_1k_bui.rds'))
+}
+
+# Housing units per fpa_2k buffered point
+if (!exists('sum_fpa_2k_bui')) {
+  if (!file.exists(file.path(anthro_out, 'built_up_intensity', 'BUI', 'summary_fpa_2k_bui.rds'))) {
+
+    sum_fpa_2k_bui <- bui_velox$extract(sp = fpa_2k, fun = function(x) sum(x, na.rm=TRUE), small = TRUE, df = TRUE) %>%
+      as_tibble() %>%
+      mutate(fpa_id = as.data.frame(fpa_2k)$FPA_ID,
+             sum_bui_1990 = X1,
+             sum_bui_1995 = X2,
+             sum_bui_2000 = X3,
+             sum_bui_2005 = X4,
+             sum_bui_2010 = X5,
+             sum_bui_2015 = X6) %>%
+      dplyr::select(-starts_with('X'))
+
+    write_rds(sum_fpa_2k_bui, file.path(anthro_out, 'built_up_intensity', 'BUI', 'summary_fpa_2k_bui.rds'))
+    system(paste0("aws s3 sync ", prefix, " ", s3_base))
+  }
+} else {
+  sum_fpa_2k_bui <- read_rds(file.path(anthro_out, 'built_up_intensity', 'BUI', 'summary_fpa_2k_bui.rds'))
+}
+
+# Housing units per fpa_3k buffered point
+if (!exists('sum_fpa_3k_bui')) {
+  if (!file.exists(file.path(anthro_out, 'built_up_intensity', 'BUI', 'summary_fpa_3k_bui.rds'))) {
+
+    sum_fpa_3k_bui <- bui_velox$extract(sp = st_cast(fpa_3k, 'MULTIPOLYGON'), fun = function(x) sum(x, na.rm=TRUE), small = TRUE, df = TRUE) %>%
+      as_tibble() %>%
+      mutate(fpa_id = as.data.frame(fpa_3k)$FPA_ID,
+             sum_bui_1990 = X1,
+             sum_bui_1995 = X2,
+             sum_bui_2000 = X3,
+             sum_bui_2005 = X4,
+             sum_bui_2010 = X5,
+             sum_bui_2015 = X6) %>%
+      dplyr::select(-starts_with('X'))
+
+    write_rds(sum_fpa_3k_bui, file.path(anthro_out, 'built_up_intensity', 'BUI', 'summary_fpa_3k_bui.rds'))
+    system(paste0("aws s3 sync ", prefix, " ", s3_base))
+  }
+} else {
+  sum_fpa_3k_bui <- read_rds(file.path(anthro_out, 'built_up_intensity', 'BUI', 'summary_fpa_3k_bui.rds'))
 }

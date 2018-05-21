@@ -30,7 +30,13 @@ if (!file.exists(file.path(fpa_out, 'fpa_buffer_2k.gpkg'))) {
   rm(fpa_1k)
 
 } else {
-  fpa_2k <- st_read(file.path(fpa_out, "fpa_buffer_2k.gpkg"))
+  fpa_2k <- st_read(file.path(fpa_out, "fpa_buffer_2k.gpkg")) %>%
+    st_transform(proj_ea)
+
+  st_write(fpa_2k, file.path(fpa_out, "fpa_buffer_2k.gpkg"),
+           driver = "GPKG", delete_layer = TRUE)
+
+  system(paste0("aws s3 sync ", prefix, " ", s3_base))
 }
 
 
@@ -46,18 +52,4 @@ if (!file.exists(file.path(fpa_out, 'fpa_buffer_3k.gpkg'))) {
 
 } else {
   fpa_3k <- st_read(file.path(fpa_out, "fpa_buffer_3k.gpkg"))
-}
-
-if (!file.exists(file.path(fpa_out, 'fpa_buffer_4k.gpkg'))) {
-
-  fpa_4k <- st_buffer(fpa_3k, dist = 1000)
-
-  st_write(fpa_4k, file.path(fpa_out, "fpa_buffer_4k.gpkg"),
-           driver = "GPKG", delete_layer = TRUE)
-
-  system(paste0("aws s3 sync ", prefix, " ", s3_base))
-  rm(fpa_3k)
-
-} else {
-  fpa_4k <- st_read(file.path(fpa_out, "fpa_buffer_4k.gpkg"))
 }
